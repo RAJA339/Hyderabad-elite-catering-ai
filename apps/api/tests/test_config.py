@@ -22,3 +22,30 @@ def test_env_file_is_read_independently_of_cwd(tmp_path, monkeypatch):
 
 def test_current_claude_default_model():
     assert Settings(llm_provider="anthropic").resolved_llm_model == "claude-opus-5"
+
+
+def test_inline_comment_after_empty_value_is_not_a_value(tmp_path):
+    # python-dotenv reads `KEY=    # note` as the literal comment; a bogus model id or API
+    # key sourced that way fails far from its cause.
+    env = tmp_path / ".env"
+    env.write_text(
+        "LLM_PROVIDER=anthropic            # anthropic | openai\n"
+        "LLM_MODEL=                        # default claude-opus-5\n"
+        "OPENAI_API_KEY=                   # also used for Whisper\n"
+        "APP_SECRET=a-real-secret-value\n"
+    )
+    s = Settings(_env_file=str(env))
+    assert s.llm_model is None
+    assert s.openai_api_key is None
+    assert s.llm_provider == "anthropic"
+    assert s.app_secret == "a-real-secret-value"
+    assert s.resolved_llm_model == "claude-opus-5"
+
+
+def test_shipped_env_example_has_no_inline_comments():
+    example = ENV_FILES[0].parent / ".env.example"
+    offenders = [
+        line for line in example.read_text().splitlines()
+        if "=" in line and not line.lstrip().startswith("#") and "#" in line.split("=", 1)[1]
+    ]
+    assert not offenders, f"inline comments would be parsed as values: {offenders}"

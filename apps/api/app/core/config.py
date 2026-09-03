@@ -5,7 +5,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Resolve .env from the package, not the shell's working directory: the API is normally
@@ -18,6 +18,15 @@ ENV_FILES = (_REPO_ROOT / ".env", _API_DIR / ".env")
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=ENV_FILES, env_file_encoding="utf-8", extra="ignore")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _drop_leftover_comments(cls, data):
+        """`KEY=            # note` parses as the literal comment, not as empty. A stray
+        model name or API key like that fails far from its cause, so treat it as unset."""
+        if not isinstance(data, dict):
+            return data
+        return {k: (None if isinstance(v, str) and v.lstrip().startswith("#") else v) for k, v in data.items()}
 
     app_env: Literal["dev", "staging", "prod"] = "dev"
     app_secret: str = Field(default="change-me-in-prod", min_length=8)
