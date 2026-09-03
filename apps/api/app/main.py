@@ -11,7 +11,7 @@ from app.core import db
 from app.core.cache import close_redis
 from app.core.config import get_settings
 from app.core.logging import configure_logging, get_logger
-from app.routers import admin, auth, chat, festivals, health, leads, payments, portal, pricing, rag, whatsapp
+from app.routers import admin, auth, chat, festivals, health, leads, payments, portal, pricing, public, rag, whatsapp
 
 log = get_logger("main")
 
@@ -45,5 +45,5 @@ app = FastAPI(title="HEC-AI — Hyderabad Elite Catering AI", version="0.1.0", l
               description="WhatsApp-first catering sales agent with live Hyderabad pricing, festival intelligence and production RAG.")
 app.add_middleware(CORSMiddleware, allow_origins=get_settings().cors_origin_list, allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
-for r in (health, auth, whatsapp, payments, chat, pricing, leads, admin, rag, portal, festivals):
+for r in (health, auth, whatsapp, payments, chat, pricing, leads, admin, rag, portal, festivals, public):
     app.include_router(r.router, prefix="/api" if r is not health else "")

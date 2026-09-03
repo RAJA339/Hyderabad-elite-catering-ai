@@ -7,11 +7,13 @@ export default {
     extend: {
       colors: {
         bg: "rgb(var(--bg) / <alpha-value>)",
+        "bg-2": "rgb(var(--bg-2) / <alpha-value>)",
         fg: "rgb(var(--fg) / <alpha-value>)",
         muted: "rgb(var(--muted) / <alpha-value>)",
         line: "rgb(var(--line) / <alpha-value>)",
         card: "rgb(var(--card) / <alpha-value>)",
         accent: "rgb(var(--accent) / <alpha-value>)",
+        "accent-2": "rgb(var(--accent-2) / <alpha-value>)",
         "accent-fg": "rgb(var(--accent-fg) / <alpha-value>)",
         good: "rgb(var(--good) / <alpha-value>)",
         warn: "rgb(var(--warn) / <alpha-value>)",
@@ -20,9 +22,14 @@ export default {
       fontFamily: {
         sans: ["Inter", "ui-sans-serif", "system-ui", "-apple-system", "Segoe UI", "Roboto", "sans-serif"],
         mono: ["JetBrains Mono", "ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
+        display: ["Instrument Serif", "Iowan Old Style", "Palatino Linotype", "Georgia", "serif"],
       },
       borderRadius: { xl: "14px", "2xl": "20px" },
-      boxShadow: { soft: "0 1px 2px rgb(0 0 0 / 0.04), 0 8px 24px -12px rgb(0 0 0 / 0.12)" },
+      boxShadow: {
+        soft: "0 1px 2px rgb(0 0 0 / 0.04), 0 8px 24px -12px rgb(0 0 0 / 0.12)",
+        lift: "0 1px 2px rgb(0 0 0 / 0.05), 0 20px 50px -20px rgb(0 0 0 / 0.25)",
+      },
+      maxWidth: { "8xl": "88rem" },
     },
   },
   plugins: [],

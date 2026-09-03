@@ -3,16 +3,20 @@ import { ThemeToggle } from "@/components/theme-toggle";
 
 export function SiteHeader() {
   return (
-    <header className="sticky top-0 z-40 border-b border-line/70 bg-bg/80 backdrop-blur">
-      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-5">
-        <Link href="/" className="flex items-center gap-2 text-sm font-semibold tracking-tight">
-          <span className="inline-block h-2.5 w-2.5 rounded-full bg-accent" /> Hyderabad Elite Catering
-        </Link>
-        <nav className="flex items-center gap-4 text-sm text-muted">
-          <Link href="/portal" className="hover:text-fg">Client portal</Link>
-          <Link href="/admin" className="hover:text-fg">Admin</Link>
-          <ThemeToggle />
-        </nav>
+    <header className="sticky top-0 z-40">
+      <div className="mx-auto mt-3 max-w-6xl px-4">
+        <div className="glass flex h-12 items-center justify-between rounded-full px-4 pl-5">
+          <Link href="/" className="flex items-center gap-2.5 text-sm font-semibold tracking-tight">
+            <span className="relative inline-flex h-2 w-2"><span className="absolute inline-flex h-full w-full rounded-full bg-accent opacity-60 blur-[2px]" /><span className="relative inline-flex h-2 w-2 rounded-full bg-accent" /></span>
+            Hyderabad Elite Catering
+          </Link>
+          <nav className="flex items-center gap-1 text-[13px]">
+            <Link href="/portal" className="rounded-full px-3 py-1.5 text-muted transition-colors hover:bg-line/50 hover:text-fg">Client portal</Link>
+            <Link href="/admin" className="rounded-full px-3 py-1.5 text-muted transition-colors hover:bg-line/50 hover:text-fg">Admin</Link>
+            <span className="mx-1 h-4 w-px bg-line" />
+            <ThemeToggle />
+          </nav>
+        </div>
       </div>
     </header>
   );

@@ -104,11 +104,15 @@ async def handle_inbound(*, tenant_id: UUID, wa_id: str, text: str, profile_name
 
     executor = ToolExecutor(tenant_id, lead, customer)
     llm = get_llm()
+    tokens_in = tokens_out = 0
     if llm is None:
         reply_text = await _scripted_reply(text, q, executor, rag.plan.intent)
-        tokens_in = tokens_out = 0
     else:
-        reply_text, tokens_in, tokens_out = await _llm_loop(llm, system, lead, text, executor)
+        try:
+            reply_text, tokens_in, tokens_out = await _llm_loop(llm, system, lead, text, executor)
+        except Exception as e:  # noqa: BLE001 - a model outage must not lose the lead
+            log.exception("llm_loop_failed", lead_id=str(lead["id"]), error=type(e).__name__)
+            reply_text = await _scripted_reply(text, q, executor, rag.plan.intent)
 
     reply_text, violations = check_reply(reply_text, executor.results, state, max_guests=get_settings().max_guests)
     escalated = any(r["name"] == "escalate_to_human" for r in executor.results)
