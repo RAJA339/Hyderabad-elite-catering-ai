@@ -24,8 +24,9 @@ class Settings(BaseSettings):
     llm_model: str | None = None
     anthropic_api_key: str | None = None
     openai_api_key: str | None = None
-    llm_max_tokens: int = 900
-    llm_temperature: float = 0.3
+    llm_max_tokens: int = 8000        # thinking is billed against this; a low cap returns empty replies
+    llm_effort: Literal["low", "medium", "high", "xhigh", "max"] = "medium"
+    llm_temperature: float = 0.3      # OpenAI only; current Claude models reject sampling params
 
     # Embeddings / rerank
     embedding_provider: Literal["openai", "voyage"] = "openai"
@@ -64,7 +65,7 @@ class Settings(BaseSettings):
     def resolved_llm_model(self) -> str:
         if self.llm_model:
             return self.llm_model
-        return "claude-sonnet-5" if self.llm_provider == "anthropic" else "gpt-4o"
+        return "claude-opus-5" if self.llm_provider == "anthropic" else "gpt-4o"
 
     @property
     def resolved_embedding_model(self) -> str:

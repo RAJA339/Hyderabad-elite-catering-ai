@@ -24,7 +24,9 @@ async def lifespan(app: FastAPI):
         from app.workers import scheduler
 
         scheduler.start()
-    log.info("startup", env=get_settings().app_env, llm=get_settings().resolved_llm_model, embeddings=get_settings().resolved_embedding_model)
+    st = get_settings()
+    log.info("startup", env=st.app_env, llm=st.resolved_llm_model, llm_key_present=bool(st.anthropic_api_key or st.openai_api_key),
+             effort=st.llm_effort, embeddings=st.resolved_embedding_model)
     yield
     from app.workers import scheduler
 

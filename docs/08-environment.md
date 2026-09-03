@@ -11,7 +11,9 @@ Copy `.env.example` to `.env` (API) and `apps/web/.env.local` (web).
 | `TENANT_DEFAULT_SLUG` | no | default tenant for single-business deployments (`hec`) |
 | `LLM_PROVIDER` | yes | `anthropic` (default) or `openai` |
 | `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` | one | model access |
-| `LLM_MODEL` | no | default `claude-sonnet-5` (Anthropic) / `gpt-4o` (OpenAI) |
+| `LLM_MODEL` | no | default `claude-opus-5` (Anthropic) / `gpt-4o` (OpenAI) |
+| `LLM_EFFORT` | no | `low`–`max`, default `medium`. Steers thinking depth and spend on current Claude models, which reject `temperature`. |
+| `LLM_MAX_TOKENS` | no | default 8000. Thinking is billed against this, so a small cap returns empty replies. |
 | `EMBEDDING_PROVIDER` | yes | `openai` (text-embedding-3-large) or `voyage` (voyage-3-large) |
 | `VOYAGE_API_KEY` | if voyage | |
 | `COHERE_API_KEY` | no | enables Cohere rerank |

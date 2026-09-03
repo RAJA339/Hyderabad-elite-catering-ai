@@ -137,8 +137,12 @@ async def _llm_loop(llm, system: str, lead: dict, text: str, executor: ToolExecu
     tin = tout = 0
     resp: LLMResponse | None = None
     for _ in range(MAX_TOOL_ROUNDS):
-        resp = await llm.chat(system=system, messages=messages, tools=TOOLS, max_tokens=s.llm_max_tokens, temperature=s.llm_temperature)
+        resp = await llm.chat(system=system, messages=messages, tools=TOOLS, max_tokens=s.llm_max_tokens)
         tin, tout = tin + resp.tokens_in, tout + resp.tokens_out
+        if resp.stop_reason == "refusal":
+            log.warning("llm_refusal", lead_id=str(lead["id"]), category=resp.refusal_category)
+            await executor.run("escalate_to_human", {"reason": "model declined to answer", "summary": text[:500]})
+            return ("Let me get one of our team to answer that properly — they'll reply here shortly.", tin, tout)
         if not resp.tool_calls:
             break
         results = []
