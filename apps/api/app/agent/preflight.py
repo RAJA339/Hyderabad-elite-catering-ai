@@ -53,6 +53,11 @@ def _explain(status: int | None, server_message: str) -> str:
 async def run_llm_preflight() -> Preflight:
     s = get_settings()
     provider, model = s.llm_provider, s.resolved_llm_model
+    wid = s.anthropic_workspace_id
+    if provider == "anthropic" and wid and not wid.startswith("wrkspc_"):
+        return Preflight(False, provider, model,
+                         f"ANTHROPIC_WORKSPACE_ID is '{wid}', which is not a workspace id. It must start with 'wrkspc_'. "
+                         "Copy it from the Claude Console under Settings then Workspaces.")
     key = s.anthropic_api_key if provider == "anthropic" else s.openai_api_key
     if not key:
         return Preflight(False, provider, model, "no API key configured; scripted fallback agent is active")

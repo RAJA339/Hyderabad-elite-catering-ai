@@ -68,3 +68,12 @@ def test_workspace_error_explains_the_actual_fix():
     invalid = "anthropic-workspace-id header must be a valid workspace ID."
     assert _explain(400, invalid) == WORKSPACE_INVALID_FIX
     assert "ANTHROPIC_WORKSPACE_ID" in WORKSPACE_FIX
+
+
+def test_doubled_workspace_prefix_is_repaired():
+    # Typing the prefix and then pasting a full id is an easy mistake and never valid.
+    assert Settings(anthropic_workspace_id="wrkspc_wrkspc_01MGK1J2th").anthropic_workspace_id == "wrkspc_01MGK1J2th"
+    assert Settings(anthropic_workspace_id="wrkspc_wrkspc_wrkspc_01A").anthropic_workspace_id == "wrkspc_01A"
+    assert Settings(anthropic_workspace_id="wrkspc_01MGK1J2th").anthropic_workspace_id == "wrkspc_01MGK1J2th"
+    assert Settings(anthropic_workspace_id="  wrkspc_01A  ").anthropic_workspace_id == "wrkspc_01A"
+    assert Settings(anthropic_workspace_id="").anthropic_workspace_id is None

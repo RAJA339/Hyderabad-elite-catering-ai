@@ -19,6 +19,17 @@ ENV_FILES = (_REPO_ROOT / ".env", _API_DIR / ".env")
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=ENV_FILES, env_file_encoding="utf-8", extra="ignore")
 
+    @model_validator(mode="after")
+    def _normalise_workspace_id(self):
+        """`wrkspc_wrkspc_01ABC` happens when the prefix is typed and then a full id is
+        pasted after it. It is never a real id, so repair it instead of failing at request
+        time with an opaque 400."""
+        wid = (self.anthropic_workspace_id or "").strip()
+        while wid.startswith("wrkspc_wrkspc_"):
+            wid = wid[len("wrkspc_") :]
+        self.anthropic_workspace_id = wid or None
+        return self
+
     @model_validator(mode="before")
     @classmethod
     def _drop_leftover_comments(cls, data):
