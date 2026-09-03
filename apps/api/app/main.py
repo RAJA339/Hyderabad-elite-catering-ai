@@ -27,6 +27,7 @@ async def lifespan(app: FastAPI):
     st = get_settings()
     has_key = bool(st.anthropic_api_key or st.openai_api_key)
     log.info("startup", env=st.app_env, llm=st.resolved_llm_model, llm_key_present=has_key,
+             workspace_id=st.anthropic_workspace_id or "(not set)",
              effort=st.llm_effort, embeddings=st.resolved_embedding_model)
     if not has_key:
         from app.core.config import ENV_FILES

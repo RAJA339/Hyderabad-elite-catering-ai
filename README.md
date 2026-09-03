@@ -45,6 +45,11 @@ python -m app.cli reindex                 # build the RAG index (uses HashEmbedd
 uvicorn app.main:app --reload             # http://localhost:8000/docs
 cd ../web && npm install && npm run dev   # http://localhost:3000
 ```
+Check the key, workspace and model without starting anything (needs no database):
+```bash
+cd apps/api && python -m app.cli check-llm
+```
+
 Try the agent without WhatsApp:
 ```bash
 python -m app.cli simulate "Hi, need catering for gruhapravesam on 14th Oct, 120 people all veg in Kompally, budget 500-600 per plate"

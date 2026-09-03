@@ -4,6 +4,7 @@
   eval            run the RAG evaluation set
   ingest-csv PATH ingest a supplier/market CSV
   sync-festivals  upsert the static festival calendar
+  check-llm       test the API key, workspace and model without starting the server
   simulate "text" run one agent turn from the CLI (dev)
 """
 from __future__ import annotations
@@ -17,8 +18,28 @@ from app.core.logging import configure_logging
 from app.routers.deps import default_tenant
 
 
+async def check_llm() -> None:
+    """Credentials only: deliberately runs before any database connection so it works
+    when Postgres is down, which is often exactly when someone is debugging setup."""
+    from app.agent.preflight import run_llm_preflight
+    from app.core.config import ENV_FILES, get_settings
+
+    st = get_settings()
+    print("env files    :", ", ".join(str(p) for p in ENV_FILES))
+    print("provider     :", st.llm_provider)
+    print("model        :", st.resolved_llm_model)
+    print("api key      :", "set" if (st.anthropic_api_key or st.openai_api_key) else "NOT SET")
+    print("workspace id :", st.anthropic_workspace_id or "NOT SET")
+    r = await run_llm_preflight()
+    print()
+    print(("PASS  " if r.ok else "FAIL  ") + r.detail)
+
+
 async def main(argv: list[str]) -> None:
     configure_logging()
+    if argv and argv[0] == "check-llm":
+        await check_llm()
+        return
     await db.init_pool()
     try:
         tid = await default_tenant()

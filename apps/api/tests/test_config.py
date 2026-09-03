@@ -60,8 +60,11 @@ def test_workspace_header_only_sent_when_configured():
 
 
 def test_workspace_error_explains_the_actual_fix():
-    from app.agent.preflight import WORKSPACE_FIX, _explain
+    from app.agent.preflight import WORKSPACE_FIX, WORKSPACE_INVALID_FIX, _explain
 
-    server = "anthropic-workspace-id is required when authenticating with an identity-linked API key"
-    assert _explain(400, server) == WORKSPACE_FIX
+    missing = "anthropic-workspace-id is required when authenticating with an identity-linked API key"
+    assert _explain(400, missing) == WORKSPACE_FIX
+    # A wrong id is a different problem from a missing one and needs different advice.
+    invalid = "anthropic-workspace-id header must be a valid workspace ID."
+    assert _explain(400, invalid) == WORKSPACE_INVALID_FIX
     assert "ANTHROPIC_WORKSPACE_ID" in WORKSPACE_FIX

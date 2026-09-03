@@ -27,11 +27,18 @@ WORKSPACE_FIX = (
     "go to Settings then Workspaces, copy the workspace id (it starts with 'wrkspc_'), and add "
     "ANTHROPIC_WORKSPACE_ID=wrkspc_... to your .env, then restart the API."
 )
+WORKSPACE_INVALID_FIX = (
+    "ANTHROPIC_WORKSPACE_ID is being sent but the server does not recognise it. Copy the exact id "
+    "from the Claude Console under Settings then Workspaces - it looks like wrkspc_01ABC... - with no "
+    "quotes, spaces or trailing comment after it in .env."
+)
 
 
 def _explain(status: int | None, server_message: str) -> str:
-    if "workspace" in (server_message or "").lower():
-        return WORKSPACE_FIX
+    msg = (server_message or "").lower()
+    if "workspace" in msg:
+        # "is required" means the header never arrived; "must be a valid" means it arrived wrong.
+        return WORKSPACE_INVALID_FIX if "valid" in msg else WORKSPACE_FIX
     if status == 401:
         return "The API key was rejected. Copy a fresh key from console.anthropic.com/settings/keys into ANTHROPIC_API_KEY."
     if status == 403:
