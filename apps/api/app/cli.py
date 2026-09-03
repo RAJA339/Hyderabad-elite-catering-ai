@@ -5,6 +5,7 @@
   ingest-csv PATH ingest a supplier/market CSV
   sync-festivals  upsert the static festival calendar
   check-llm       test the API key, workspace and model without starting the server
+  doctor          show which .env files exist and what the app actually read from them
   simulate "text" run one agent turn from the CLI (dev)
 """
 from __future__ import annotations
@@ -16,6 +17,73 @@ import sys
 from app.core import db
 from app.core.logging import configure_logging
 from app.routers.deps import default_tenant
+
+SENSITIVE = ("KEY", "SECRET", "TOKEN", "PASSWORD")
+
+
+def _mask(key: str, value: str) -> str:
+    if not value:
+        return "(empty)"
+    if any(w in key.upper() for w in SENSITIVE):
+        return f"{value[:7]}...{value[-4:]} ({len(value)} chars)" if len(value) > 14 else f"set ({len(value)} chars)"
+    return value
+
+
+def doctor() -> None:
+    """Inspect the .env files on disk. Windows editors silently rename '.env' to '.env.txt',
+    which looks correct in Explorer and is invisible to the app, so list what is really there."""
+    from dotenv import dotenv_values
+
+    from app.core.config import ENV_FILES, get_settings
+
+    print("=" * 68)
+    print("ENV FILE DOCTOR")
+    print("=" * 68)
+    found_any = False
+    for target in ENV_FILES:
+        folder = target.parent
+        print(f"\nFolder: {folder}")
+        if not folder.exists():
+            print("  ! folder does not exist")
+            continue
+        candidates = sorted(x for x in folder.iterdir() if x.name.lower().startswith(".env") or x.name.lower() == "env.txt")
+        if not candidates:
+            print("  (no .env* files here)")
+        for c in candidates:
+            note = ""
+            if c.name == ".env":
+                note = "  <-- THIS is the one the app reads"
+                found_any = True
+            elif c.name.lower() in (".env.txt", "env.txt", ".env.text"):
+                note = "  <-- WRONG NAME. Rename it to exactly '.env'"
+            elif c.name == ".env.example":
+                note = "  (template only, never read)"
+            print(f"  {c.name:<22} {c.stat().st_size:>6} bytes{note}")
+
+    if not found_any:
+        print("\nNo file named exactly '.env' was found, which is why nothing is read.")
+        print("Fix it in PowerShell from the repo root:")
+        print("    Rename-Item .env.txt .env")
+        print("Or create it directly, which never adds a .txt extension:")
+        print("    notepad.exe (New-Item -Path .env -ItemType File -Force).FullName")
+        return
+
+    for target in ENV_FILES:
+        if not target.exists():
+            continue
+        print(f"\nParsed from {target}:")
+        parsed = dotenv_values(target)
+        if not parsed:
+            print("  (file is empty or has no KEY=VALUE lines)")
+        for k, v in parsed.items():
+            print(f"  {k:<26} = {_mask(k, v or '')}")
+
+    st = get_settings()
+    print("\nWhat the app actually resolved:")
+    print(f"  ANTHROPIC_API_KEY          = {_mask('KEY', st.anthropic_api_key or '')}")
+    print(f"  ANTHROPIC_WORKSPACE_ID     = {st.anthropic_workspace_id or 'NOT SET'}")
+    print(f"  LLM_PROVIDER / model       = {st.llm_provider} / {st.resolved_llm_model}")
+    print("\nNext: python -m app.cli check-llm")
 
 
 async def check_llm() -> None:
@@ -37,6 +105,9 @@ async def check_llm() -> None:
 
 async def main(argv: list[str]) -> None:
     configure_logging()
+    if argv and argv[0] == "doctor":
+        doctor()
+        return
     if argv and argv[0] == "check-llm":
         await check_llm()
         return
