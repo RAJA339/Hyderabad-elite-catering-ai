@@ -33,6 +33,10 @@ async def lifespan(app: FastAPI):
 
         log.warning("no_llm_key", message="Running the scripted fallback agent. Set ANTHROPIC_API_KEY (or OPENAI_API_KEY) in one of these files.",
                     env_files=[str(p) for p in ENV_FILES])
+    else:
+        from app.agent.preflight import log_llm_preflight
+
+        await log_llm_preflight()
     yield
     from app.workers import scheduler
 
