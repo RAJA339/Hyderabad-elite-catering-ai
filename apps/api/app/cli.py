@@ -6,6 +6,7 @@
   sync-festivals  upsert the static festival calendar
   check-llm       test the API key, workspace and model without starting the server
   doctor          show which .env files exist and what the app actually read from them
+  set-env K=V     safely write one setting into the root .env (handles newlines/encoding)
   simulate "text" run one agent turn from the CLI (dev)
 """
 from __future__ import annotations
@@ -27,6 +28,38 @@ def _mask(key: str, value: str) -> str:
     if any(w in key.upper() for w in SENSITIVE):
         return f"{value[:7]}...{value[-4:]} ({len(value)} chars)" if len(value) > 14 else f"set ({len(value)} chars)"
     return value
+
+
+def set_env(assignment: str) -> None:
+    """Write one KEY=VALUE into the root .env correctly.
+
+    Windows shells make this deceptively hard: Add-Content joins onto the last line when the
+    file has no trailing newline, editors append .txt, and encodings vary. Doing it here
+    removes all three."""
+    from app.core.config import ENV_FILES
+
+    if "=" not in assignment:
+        print("Usage: python -m app.cli set-env KEY=VALUE")
+        return
+    key, value = assignment.split("=", 1)
+    key, value = key.strip(), value.strip().strip('"').strip("'")
+    target = ENV_FILES[0]
+
+    lines = target.read_text(encoding="utf-8-sig").splitlines() if target.exists() else []
+    replaced = False
+    for i, line in enumerate(lines):
+        if line.lstrip().startswith(f"{key}=") and not line.lstrip().startswith("#"):
+            lines[i] = f"{key}={value}"
+            replaced = True
+            break
+    if not replaced:
+        lines.append(f"{key}={value}")
+    target.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
+
+    shown = f"{value[:7]}...{value[-4:]}" if any(w in key.upper() for w in SENSITIVE) and len(value) > 14 else value
+    print(f"{'Updated' if replaced else 'Added'} {key}={shown}")
+    print(f"in {target}")
+    print("\nNext: python -m app.cli check-llm")
 
 
 def doctor() -> None:
@@ -76,7 +109,14 @@ def doctor() -> None:
         if not parsed:
             print("  (file is empty or has no KEY=VALUE lines)")
         for k, v in parsed.items():
-            print(f"  {k:<26} = {_mask(k, v or '')}")
+            flag = ""
+            # A shell append onto a file with no trailing newline welds two settings together.
+            if v and "=" in v and not v.lstrip().startswith("#"):
+                flag = "   <-- two settings on one line; run set-env to repair"
+            print(f"  {k:<26} = {_mask(k, v or '')}{flag}")
+        raw = target.read_text(encoding="utf-8-sig", errors="replace")
+        if raw and not raw.endswith("\n"):
+            print("  ! file has no trailing newline: a shell append would join onto the last line")
 
     st = get_settings()
     print("\nWhat the app actually resolved:")
@@ -105,6 +145,9 @@ async def check_llm() -> None:
 
 async def main(argv: list[str]) -> None:
     configure_logging()
+    if argv and argv[0] == "set-env":
+        set_env(argv[1] if len(argv) > 1 else "")
+        return
     if argv and argv[0] == "doctor":
         doctor()
         return
