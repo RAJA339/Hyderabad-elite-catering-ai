@@ -49,3 +49,19 @@ def test_shipped_env_example_has_no_inline_comments():
         if "=" in line and not line.lstrip().startswith("#") and "#" in line.split("=", 1)[1]
     ]
     assert not offenders, f"inline comments would be parsed as values: {offenders}"
+
+
+def test_workspace_header_only_sent_when_configured():
+    from app.agent.llm import anthropic_headers
+
+    assert anthropic_headers(None) == {}
+    assert anthropic_headers("") == {}
+    assert anthropic_headers("wrkspc_abc") == {"anthropic-workspace-id": "wrkspc_abc"}
+
+
+def test_workspace_error_explains_the_actual_fix():
+    from app.agent.preflight import WORKSPACE_FIX, _explain
+
+    server = "anthropic-workspace-id is required when authenticating with an identity-linked API key"
+    assert _explain(400, server) == WORKSPACE_FIX
+    assert "ANTHROPIC_WORKSPACE_ID" in WORKSPACE_FIX

@@ -27,6 +27,12 @@ class LLMResponse:
     refusal_category: str | None = None
 
 
+def anthropic_headers(workspace_id: str | None) -> dict[str, str]:
+    """Identity-linked API keys are rejected with a 400 unless every request names the
+    workspace it acts in. A plain key needs no header, so send it only when configured."""
+    return {"anthropic-workspace-id": workspace_id} if workspace_id else {}
+
+
 class AnthropicLLM:
     """Messages API client.
 
@@ -35,10 +41,10 @@ class AnthropicLLM:
     instead. Thinking blocks are echoed back untouched, which is what the API expects when a
     conversation continues on the same model."""
 
-    def __init__(self, api_key: str, model: str, effort: str = "medium"):
+    def __init__(self, api_key: str, model: str, effort: str = "medium", workspace_id: str | None = None):
         from anthropic import AsyncAnthropic
 
-        self.client = AsyncAnthropic(api_key=api_key)
+        self.client = AsyncAnthropic(api_key=api_key, default_headers=anthropic_headers(workspace_id))
         self.model = model
         self.effort = effort
 
@@ -129,7 +135,7 @@ def get_llm():
         return _llm or None
     s = get_settings()
     if s.llm_provider == "anthropic" and s.anthropic_api_key:
-        _llm = AnthropicLLM(s.anthropic_api_key, s.resolved_llm_model, s.llm_effort)
+        _llm = AnthropicLLM(s.anthropic_api_key, s.resolved_llm_model, s.llm_effort, s.anthropic_workspace_id)
     elif s.llm_provider == "openai" and s.openai_api_key:
         _llm = OpenAILLM(s.openai_api_key, s.resolved_llm_model)
     else:

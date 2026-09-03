@@ -11,6 +11,7 @@ Copy `.env.example` to `.env` (API) and `apps/web/.env.local` (web).
 | `TENANT_DEFAULT_SLUG` | no | default tenant for single-business deployments (`hec`) |
 | `LLM_PROVIDER` | yes | `anthropic` (default) or `openai` |
 | `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` | one | model access |
+| `ANTHROPIC_WORKSPACE_ID` | if identity-linked | Sent as the `anthropic-workspace-id` header. Identity-linked keys return HTTP 400 without it; ordinary keys need nothing. |
 | `LLM_MODEL` | no | default `claude-opus-5` (Anthropic) / `gpt-4o` (OpenAI) |
 | `LLM_EFFORT` | no | `low`–`max`, default `medium`. Steers thinking depth and spend on current Claude models, which reject `temperature`. |
 | `LLM_MAX_TOKENS` | no | default 8000. Thinking is billed against this, so a small cap returns empty replies. |

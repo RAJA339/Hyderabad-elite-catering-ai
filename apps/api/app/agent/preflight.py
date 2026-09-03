@@ -22,7 +22,16 @@ class Preflight:
     detail: str
 
 
+WORKSPACE_FIX = (
+    "This key is identity-linked, so every request must name a workspace. Open the Claude Console, "
+    "go to Settings then Workspaces, copy the workspace id (it starts with 'wrkspc_'), and add "
+    "ANTHROPIC_WORKSPACE_ID=wrkspc_... to your .env, then restart the API."
+)
+
+
 def _explain(status: int | None, server_message: str) -> str:
+    if "workspace" in (server_message or "").lower():
+        return WORKSPACE_FIX
     if status == 401:
         return "The API key was rejected. Copy a fresh key from console.anthropic.com/settings/keys into ANTHROPIC_API_KEY."
     if status == 403:
@@ -44,14 +53,17 @@ async def run_llm_preflight() -> Preflight:
         if provider == "anthropic":
             import anthropic
 
-            client = anthropic.AsyncAnthropic(api_key=key)
+            from app.agent.llm import anthropic_headers
+
+            client = anthropic.AsyncAnthropic(api_key=key, default_headers=anthropic_headers(s.anthropic_workspace_id))
             try:
                 m = await client.models.retrieve(model)
-                return Preflight(True, provider, model, f"key accepted, model '{m.id}' available")
+                scope = f" in workspace {s.anthropic_workspace_id}" if s.anthropic_workspace_id else ""
+                return Preflight(True, provider, model, f"key accepted, model '{m.id}' available{scope}")
             except anthropic.APIStatusError as e:
                 body = e.body if isinstance(e.body, dict) else {}
                 server = (body.get("error") or {}).get("message") if isinstance(body.get("error"), dict) else str(e)
-                return Preflight(False, provider, model, f"HTTP {e.status_code} {e.type or ''}: {server}. {_explain(e.status_code, server or '')}")
+                return Preflight(False, provider, model, f"HTTP {e.status_code} {e.type or ''}: {server} -> {_explain(e.status_code, server or '')}")
             except anthropic.APIConnectionError as e:
                 return Preflight(False, provider, model, f"could not reach api.anthropic.com: {e}")
         else:

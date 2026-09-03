@@ -51,8 +51,11 @@ python -m app.cli simulate "Hi, need catering for gruhapravesam on 14th Oct, 120
 ```
 Admin login: `owner@hec.example` / `Admin@12345` (seeded; change it).
 
-The API startup line reports `llm_key_present`. If it says `false`, the agent runs a scripted
-fallback rather than the conversational one, and the log names the exact `.env` paths checked.
+At startup the API tests the key against Anthropic and logs `llm_preflight_ok` or
+`llm_preflight_failed` with the server's own message and a one-line fix. Until it passes, Anvi
+answers with a scripted fallback rather than the conversational agent. If it reports that
+`anthropic-workspace-id is required`, your key is identity-linked: set `ANTHROPIC_WORKSPACE_ID`
+to the workspace id from the Claude Console under Settings then Workspaces.
 
 ## WhatsApp setup (Cloud API via your BSP)
 1. Create a Meta app + WhatsApp product (or use a BSP such as Gupshup/Interakt/Wati that exposes the Cloud API).

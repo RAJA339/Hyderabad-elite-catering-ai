@@ -40,6 +40,10 @@ class Settings(BaseSettings):
     llm_provider: Literal["anthropic", "openai"] = "anthropic"
     llm_model: str | None = None
     anthropic_api_key: str | None = None
+    # Identity-linked keys must name the workspace each request acts in. The SDK only
+    # resolves this for its credential-file/federation chain, which a plain api_key skips,
+    # so it is sent as an explicit anthropic-workspace-id header.
+    anthropic_workspace_id: str | None = None
     openai_api_key: str | None = None
     llm_max_tokens: int = 8000        # thinking is billed against this; a low cap returns empty replies
     llm_effort: Literal["low", "medium", "high", "xhigh", "max"] = "medium"
