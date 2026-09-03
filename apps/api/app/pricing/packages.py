@@ -24,30 +24,39 @@ class PackageTemplate:
 
 
 def apply_diet(items: Sequence[MenuItem], diet: Diet, catalog: Mapping[str, MenuItem]) -> tuple[list[MenuItem], list[str]]:
-    """Filter/substitute items for the requested diet. Returns (items, change_notes)."""
+    """Filter/substitute items for the requested diet. Returns (items, change_notes).
+
+    A substitute is never repeated: serving the same dish twice on one buffet would look
+    careless and would charge the customer for it twice."""
     notes: list[str] = []
     out: list[MenuItem] = []
+    taken: set[str] = {it.slug for it in items}
     for it in items:
         if diet == "veg" and it.diet == "non_veg":
             notes.append(f"removed {it.name} (non-veg)")
+            taken.discard(it.slug)
             continue
         if diet == "jain":
             if it.diet == "non_veg" or (set(it.contains) & JAIN_FORBIDDEN) or not it.is_jain_ok:
-                sub = _jain_substitute(it, catalog)
+                taken.discard(it.slug)
+                sub = _jain_substitute(it, catalog, exclude={m.slug for m in out} | taken)
                 if sub:
                     notes.append(f"swapped {it.name} → {sub.name} (Jain)")
                     out.append(sub)
                 else:
                     notes.append(f"removed {it.name} (not Jain-compatible)")
                 continue
+        if any(m.slug == it.slug for m in out):
+            continue
         out.append(it)
     return out, notes
 
 
-def _jain_substitute(item: MenuItem, catalog: Mapping[str, MenuItem]) -> MenuItem | None:
+def _jain_substitute(item: MenuItem, catalog: Mapping[str, MenuItem], exclude: set[str] = frozenset()) -> MenuItem | None:
     candidates = [
         m for m in catalog.values()
-        if m.category_key == item.category_key and m.is_jain_ok and m.diet == "veg" and m.slug != item.slug
+        if m.category_key == item.category_key and m.is_jain_ok and m.diet == "veg"
+        and m.slug != item.slug and m.slug not in exclude
     ]
     candidates.sort(key=lambda m: -m.popularity)
     return candidates[0] if candidates else None

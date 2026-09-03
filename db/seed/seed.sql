@@ -71,7 +71,8 @@ BEGIN
       IF k = 'chicken' AND d <= 2 THEN factor := 1.16; END IF;   -- chicken spiked 16% in the last 3 days
       IF k = 'onion' AND d <= 3 THEN factor := 1.25; END IF;     -- onion spiked 25%
       IF k = 'tomato' AND d <= 1 THEN factor := 0.93; END IF;    -- tomato softened
-      p := round((base->>k)::numeric * factor * (1 + (random()-0.5)*0.02), 2);
+      -- the jitter is float8, so cast the whole product back to numeric before round(numeric, int)
+      p := round(((base->>k)::numeric * factor * (1 + (random()-0.5)*0.02)::numeric), 2);
       INSERT INTO ingredient_prices (tenant_id, ingredient_id, source, market, price_per_unit, observed_at)
       VALUES ('11111111-1111-1111-1111-111111111111', ing_id, 'bowenpally_wholesale', 'wholesale', p, now() - (d || ' days')::interval);
     END LOOP;
@@ -203,7 +204,8 @@ INSERT INTO upsell_rules (tenant_id, guest_min, guest_max, occasion, diet, sugge
 ('11111111-1111-1111-1111-111111111111',NULL,NULL,'birthday',NULL,'live_pasta',0.44,'Birthday parties love the live pasta counter — kids and adults both.'),
 ('11111111-1111-1111-1111-111111111111',NULL,NULL,NULL,'non_veg','live_tandoor',0.51,'Non-veg menus with a live tandoor get the best reviews for freshness.'),
 ('11111111-1111-1111-1111-111111111111',NULL,NULL,'corporate',NULL,'irani_chai',0.47,'Corporate evenings usually end with Irani chai and Osmania biscuits.'),
-('11111111-1111-1111-1111-111111111111',NULL,NULL,'wedding',NULL,'qubani_ka_meetha',0.55,'Weddings in Hyderabad almost always add qubani ka meetha.');
+('11111111-1111-1111-1111-111111111111',NULL,NULL,'wedding',NULL,'qubani_ka_meetha',0.55,'Weddings in Hyderabad almost always add qubani ka meetha.'),
+('11111111-1111-1111-1111-111111111111',80,NULL,NULL,NULL,'irani_chai',0.41,'Most functions end with Irani chai and Osmania biscuits — it is what guests remember.');
 
 -- ── Partner venues ───────────────────────────────────────────────────────────
 INSERT INTO venues (tenant_id, name, area, capacity, preferred_rate, tags) VALUES

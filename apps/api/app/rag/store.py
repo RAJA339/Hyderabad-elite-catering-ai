@@ -69,6 +69,18 @@ def _vec(e: Sequence[float]) -> str:
     return "[" + ",".join(f"{x:.6f}" for x in e) + "]"
 
 
+_HALFVEC: bool | None = None
+
+
+async def halfvec_available() -> bool:
+    """pgvector >= 0.7 ships halfvec, which is what lets a 3072-d column be HNSW-indexed.
+    Older builds still answer the query correctly, just without the index."""
+    global _HALFVEC
+    if _HALFVEC is None:
+        _HALFVEC = bool(await db.fetchval("SELECT to_regtype('halfvec') IS NOT NULL"))
+    return _HALFVEC
+
+
 class PgVectorStore:
     SELECT = """
       SELECT c.id AS chunk_id, c.document_id, c.source_id, c.content, d.breadcrumb, c.metadata, c.source_type::text AS source_type
@@ -77,11 +89,16 @@ class PgVectorStore:
     async def dense_search(self, embedding: Sequence[float], filters: Filters, k: int) -> list[Hit]:
         where, args = filters.sql(3)
         dim = len(embedding)
+        # Match the index expression when halfvec exists so the HNSW index is actually used.
+        if await halfvec_available():
+            left, right = f"c.embedding::halfvec({dim})", f"$2::halfvec({dim})"
+        else:
+            left, right = "c.embedding", f"$2::vector({dim})"
         rows = await db.fetch(
-            f"""{self.SELECT}, 1 - (c.embedding::halfvec({dim}) <=> $2::halfvec({dim})) AS score
+            f"""{self.SELECT}, 1 - ({left} <=> {right}) AS score
                 FROM rag_chunks c JOIN rag_documents d ON d.id = c.document_id
                 WHERE {where} AND c.embedding IS NOT NULL
-                ORDER BY c.embedding::halfvec({dim}) <=> $2::halfvec({dim}) LIMIT {int(k)}""",
+                ORDER BY {left} <=> {right} LIMIT {int(k)}""",
             filters.tenant_id, _vec(embedding), *args,
         )
         return [self._hit(r) for r in rows]

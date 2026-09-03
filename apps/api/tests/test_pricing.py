@@ -103,3 +103,18 @@ def test_market_snapshot_exposes_benchmark_and_drivers():
     snap = market_snapshot(pkg, PRICES)
     assert D(snap["market_benchmark_per_plate"]) > D(snap["our_per_plate"])
     assert snap["ingredients"][0]["key"] == "chicken"
+
+
+def test_jain_substitution_never_repeats_a_dish():
+    # Three non-Jain mains would otherwise all collapse onto the same replacement.
+    items = [CATALOG["chicken_biryani"], CATALOG["mutton_biryani"], CATALOG["aloo_curry"], CATALOG["paneer_butter_masala"]]
+    out, notes = apply_diet(items, "jain", CATALOG)
+    slugs = [i.slug for i in out]
+    assert len(slugs) == len(set(slugs)), f"duplicate dish in Jain menu: {slugs}"
+    assert all(i.is_jain_ok for i in out)
+
+
+def test_diet_filter_does_not_duplicate_existing_items():
+    items = [CATALOG["pulihora"], CATALOG["pulihora"], CATALOG["gulab_jamun"]]
+    out, _ = apply_diet(items, "veg", CATALOG)
+    assert [i.slug for i in out] == ["pulihora", "gulab_jamun"]

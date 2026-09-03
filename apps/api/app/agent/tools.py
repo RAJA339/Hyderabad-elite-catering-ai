@@ -196,7 +196,9 @@ class ToolExecutor:
         pkg, _, prices = await self._price_from_slugs(tier or prev["tier"], [i.slug for i in items], guest_count, diet)
         pkg.notes = notes + pkg.notes
         snap = market_snapshot(pkg, prices)
-        changes = notes + ([f"guests {prev['guest_count']} → {guest_count}"] if guest_count != prev["guest_count"] else []) + \
+        # pkg.notes already carries the diet substitutions/removals, so a Jain switch that drops an
+        # item the customer just asked for is reported instead of silently disappearing.
+        changes = list(pkg.notes) + ([f"guests {prev['guest_count']} → {guest_count}"] if guest_count != prev["guest_count"] else []) + \
                   ([f"diet {prev['diet']} → {diet}"] if diet != prev["diet"] else [])
         ev_type = "guests_changed" if guest_count != prev["guest_count"] else "diet_changed" if diet != prev["diet"] else "item_added" if add else "item_removed"
         saved = await qrepo.save_quote(self.tenant_id, self.lead["id"], pkg, prev["event_date"], market_snapshot=snap, previous=prev,

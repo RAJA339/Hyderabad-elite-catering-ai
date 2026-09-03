@@ -301,7 +301,7 @@ CREATE TABLE quotes (
   margin_pct    numeric(5,2) NOT NULL,
   market_snapshot jsonb,                  -- "today's Hyderabad market" comparison shown to client
   pricing_trace jsonb,                    -- full breakdown for audit
-  portal_token  text UNIQUE,
+  portal_token  text,          -- shared by every version of a quote so the client's link never changes
   valid_until   timestamptz,
   created_by    text NOT NULL DEFAULT 'agent',
   created_at    timestamptz NOT NULL DEFAULT now(),
@@ -310,6 +310,7 @@ CREATE TABLE quotes (
 );
 CREATE INDEX quotes_lead_idx ON quotes (lead_id, version DESC);
 CREATE INDEX quotes_event_date_idx ON quotes (tenant_id, event_date) WHERE status IN ('locked','accepted');
+CREATE INDEX quotes_portal_token_idx ON quotes (portal_token);
 
 CREATE TABLE quote_items (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -623,9 +624,18 @@ CREATE TABLE rag_chunks (               -- child chunks
   updated_at    timestamptz NOT NULL DEFAULT now(),
   UNIQUE (document_id, ordinal)
 );
--- NOTE: pgvector HNSW supports up to 2000 dims for vector; for 3072-d use halfvec index:
-CREATE INDEX rag_chunks_embedding_hnsw ON rag_chunks
-  USING hnsw ((embedding::halfvec(3072)) halfvec_cosine_ops) WITH (m = 16, ef_construction = 128);
+-- pgvector HNSW supports at most 2000 dims for `vector`, so a 3072-d column is indexed
+-- through a halfvec expression. halfvec needs pgvector >= 0.7, so the index is created only
+-- when the type exists; without it retrieval still works, just as a sequential scan.
+DO $$
+BEGIN
+  IF to_regtype('halfvec') IS NOT NULL THEN
+    EXECUTE 'CREATE INDEX rag_chunks_embedding_hnsw ON rag_chunks '
+            'USING hnsw ((embedding::halfvec(3072)) halfvec_cosine_ops) WITH (m = 16, ef_construction = 128)';
+  ELSE
+    RAISE NOTICE 'pgvector lacks halfvec (needs >= 0.7); skipping the HNSW index on rag_chunks.';
+  END IF;
+END $$;
 CREATE INDEX rag_chunks_tsv_idx ON rag_chunks USING gin (content_tsv);
 CREATE INDEX rag_chunks_filter_idx ON rag_chunks (tenant_id, status, source_type, diet, guest_min, guest_max);
 CREATE INDEX rag_chunks_metadata_idx ON rag_chunks USING gin (metadata jsonb_path_ops);
