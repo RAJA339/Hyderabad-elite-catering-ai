@@ -7,24 +7,33 @@ import secrets
 from collections.abc import Iterable
 from datetime import UTC, datetime, timedelta
 
+import bcrypt
 from fastapi import Depends, HTTPException, Request, status
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 
 from app.core.config import get_settings
 
-pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
 ALGO = "HS256"
+BCRYPT_MAX_BYTES = 72  # bcrypt hard limit; longer input raises rather than truncating
 
 ROLE_RANK = {"viewer": 0, "kitchen": 1, "sales": 2, "manager": 3, "owner": 4}
 
 
+def _pw_bytes(p: str) -> bytes:
+    return p.encode("utf-8")[:BCRYPT_MAX_BYTES]
+
+
 def hash_password(p: str) -> str:
-    return pwd_ctx.hash(p)
+    """bcrypt directly rather than through passlib, whose bcrypt backend breaks against
+    bcrypt >= 4.1 and takes password verification down with it."""
+    return bcrypt.hashpw(_pw_bytes(p), bcrypt.gensalt()).decode()
 
 
 def verify_password(p: str, h: str) -> bool:
-    return pwd_ctx.verify(p, h)
+    try:
+        return bcrypt.checkpw(_pw_bytes(p), h.encode())
+    except (ValueError, TypeError):
+        return False
 
 
 def create_access_token(*, user_id: str, tenant_id: str, role: str, hours: int = 12) -> str:

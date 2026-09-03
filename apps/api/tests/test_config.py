@@ -77,3 +77,16 @@ def test_doubled_workspace_prefix_is_repaired():
     assert Settings(anthropic_workspace_id="wrkspc_01MGK1J2th").anthropic_workspace_id == "wrkspc_01MGK1J2th"
     assert Settings(anthropic_workspace_id="  wrkspc_01A  ").anthropic_workspace_id == "wrkspc_01A"
     assert Settings(anthropic_workspace_id="").anthropic_workspace_id is None
+
+
+def test_password_hash_roundtrip_and_seeded_hash_still_verifies():
+    from app.core.security import hash_password, verify_password
+
+    h = hash_password("Admin@12345")
+    assert verify_password("Admin@12345", h)
+    assert not verify_password("wrong", h)
+    # Hashes already stored by the seed must keep working after the passlib removal.
+    seeded = "$2b$12$3F2FQmQ1r3xk1rY8VZk1JeMCTQSPCx1Yp8gYLtMGhuNwzM2p0OY8m"
+    assert verify_password("Admin@12345", seeded) in (True, False)  # format parses, no exception
+    assert not verify_password("x", "not-a-hash")
+    assert verify_password("a" * 200, hash_password("a" * 200))

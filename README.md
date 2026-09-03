@@ -54,7 +54,8 @@ Try the agent without WhatsApp:
 ```bash
 python -m app.cli simulate "Hi, need catering for gruhapravesam on 14th Oct, 120 people all veg in Kompally, budget 500-600 per plate"
 ```
-Admin login: `owner@hec.example` / `Admin@12345` (seeded; change it).
+Admin login: `owner@hec.example` / `Admin@12345`. This is public in the repo, so it is for
+local use only — `bootstrap` disables it on any database you deploy.
 
 At startup the API tests the key against Anthropic and logs `llm_preflight_ok` or
 `llm_preflight_failed` with the server's own message and a one-line fix. Until it passes, Anvi
@@ -75,9 +76,17 @@ cd apps/web && npm run typecheck
 ```
 
 ## Deployment
-- **Web:** Vercel (`apps/web`, env `NEXT_PUBLIC_API_URL`).
-- **API:** Railway / Fly / ECS with `apps/api/Dockerfile`; run one instance with `RUN_SCHEDULER=1`, others `0`.
-- **DB:** Neon / Supabase / RDS with `pgvector ≥ 0.7` (halfvec HNSW). **Redis:** Upstash / ElastiCache.
+Step-by-step with free tiers: **[docs/09-deployment.md](docs/09-deployment.md)**.
+
+One command prepares a fresh hosted database — schema, seed, costs, search index, and a
+rotated admin password:
+```bash
+cd apps/api && python -m app.cli bootstrap
+```
+The admin password in this README is public, so `bootstrap` replaces it and prints the new
+one once. Summary: web on Vercel (`apps/web`), API on Railway (`apps/api/Dockerfile`,
+`RUN_SCHEDULER=1` on exactly one instance), Postgres on Neon with `pgvector ≥ 0.7`, Redis
+on Upstash (optional).
 
 ## Compliance
 Consent is captured per purpose before any personal data is stored (DPDP), every state change

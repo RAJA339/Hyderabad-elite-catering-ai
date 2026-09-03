@@ -7,6 +7,8 @@
   check-llm       test the API key, workspace and model without starting the server
   doctor          show which .env files exist and what the app actually read from them
   set-env K=V     safely write one setting into the root .env (handles newlines/encoding)
+  bootstrap       prepare a new database: schema, seed, costs, index, admin password
+  set-password EMAIL [PASSWORD]   set a staff password (generates a strong one if omitted)
   simulate "text" run one agent turn from the CLI (dev)
 """
 from __future__ import annotations
@@ -126,6 +128,71 @@ def doctor() -> None:
     print("\nNext: python -m app.cli check-llm")
 
 
+# The seed ships a known bcrypt hash so local dev has a login. It is public in the repo,
+# so it must never survive into a deployment.
+DEV_PASSWORD_HASH = "$2b$12$3F2FQmQ1r3xk1rY8VZk1JeMCTQSPCx1Yp8gYLtMGhuNwzM2p0OY8m"
+
+
+async def set_password(email: str, password: str | None = None) -> None:
+    import secrets
+
+    from app.core.security import hash_password
+
+    if not email:
+        print("Usage: python -m app.cli set-password EMAIL [PASSWORD]")
+        return
+    generated = password is None
+    password = password or secrets.token_urlsafe(15)
+    row = await db.fetchrow("UPDATE users SET password_hash = $2 WHERE email = $1 RETURNING full_name, role::text AS role",
+                            email, hash_password(password))
+    if not row:
+        print(f"No user with email {email}. Seeded accounts: owner@hec.example, sales@hec.example")
+        return
+    print(f"Password updated for {email} ({row['role']}).")
+    if generated:
+        print(f"\n    {password}\n")
+        print("Copy it now - it is not stored anywhere in readable form.")
+
+
+async def bootstrap() -> None:
+    """Prepare a brand-new database: schema, seed, costs, search index.
+
+    docker compose applies schema.sql and seed.sql automatically on first start, but a hosted
+    Postgres has neither, so deployment needs this."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[3]
+    async with db.pool().acquire() as conn:
+        exists = await conn.fetchval("SELECT to_regclass('public.tenants') IS NOT NULL")
+        if not exists:
+            print("Applying schema...")
+            await conn.execute((root / "db" / "schema.sql").read_text(encoding="utf-8"))
+        else:
+            print("Schema already present, skipping.")
+        seeded = await conn.fetchval("SELECT count(*) FROM tenants")
+        if not seeded:
+            print("Seeding menus, prices, festivals and rules...")
+            await conn.execute((root / "db" / "seed" / "seed.sql").read_text(encoding="utf-8"))
+        else:
+            print("Tenant already seeded, skipping.")
+
+    from app.pricing.repository import refresh_item_costs
+    from app.rag.indexing import index_tenant
+    from app.routers.deps import default_tenant
+
+    tid = await default_tenant()
+    print(f"Item costs computed: {await refresh_item_costs(tid)}")
+    print(f"Search index: {(await index_tenant(tid))['chunks_embedded']} chunks embedded")
+
+    still_default = await db.fetchval("SELECT count(*) FROM users WHERE password_hash = $1", DEV_PASSWORD_HASH)
+    if still_default:
+        print("\nThe seeded admin password is published in this repository. Rotating it now.")
+        await set_password("owner@hec.example")
+        await db.execute("UPDATE users SET password_hash = NULL WHERE password_hash = $1", DEV_PASSWORD_HASH)
+        print("Other seeded logins disabled. Use set-password to enable one.")
+    print("\nReady.")
+
+
 async def check_llm() -> None:
     """Credentials only: deliberately runs before any database connection so it works
     when Postgres is down, which is often exactly when someone is debugging setup."""
@@ -156,8 +223,19 @@ async def main(argv: list[str]) -> None:
         return
     await db.init_pool()
     try:
-        tid = await default_tenant()
         cmd = argv[0] if argv else "help"
+        # bootstrap runs against an empty database, so the tenant lookup cannot come first.
+        if cmd == "bootstrap":
+            await bootstrap()
+            return
+        if cmd == "set-password":
+            await set_password(argv[1] if len(argv) > 1 else "", argv[2] if len(argv) > 2 else None)
+            return
+        if cmd == "help":
+            print(__doc__)
+            return
+
+        tid = await default_tenant()
         if cmd == "refresh-costs":
             from app.pricing.repository import refresh_item_costs
             print(json.dumps({"items": await refresh_item_costs(tid)}))
