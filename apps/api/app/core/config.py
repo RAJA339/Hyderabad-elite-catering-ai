@@ -2,14 +2,22 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Resolve .env from the package, not the shell's working directory: the API is normally
+# started from apps/api (or, once pip-installed, from anywhere), while .env sits at the
+# repository root. Later files win, so apps/api/.env can override the shared root file.
+_API_DIR = Path(__file__).resolve().parents[2]
+_REPO_ROOT = _API_DIR.parents[1]
+ENV_FILES = (_REPO_ROOT / ".env", _API_DIR / ".env")
+
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(env_file=ENV_FILES, env_file_encoding="utf-8", extra="ignore")
 
     app_env: Literal["dev", "staging", "prod"] = "dev"
     app_secret: str = Field(default="change-me-in-prod", min_length=8)

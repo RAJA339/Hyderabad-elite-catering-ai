@@ -39,7 +39,7 @@ the output guardrail strips any rupee amount that did not come from a tool call.
 ```bash
 cp .env.example .env                      # add ANTHROPIC_API_KEY (or OPENAI_API_KEY), WhatsApp creds
 docker compose up -d db redis             # Postgres 16 + pgvector (schema + seed auto-applied), Redis
-cd apps/api && pip install -e ".[dev]"    # Python 3.11+
+cd apps/api && pip install -e ".[dev]"    # Python 3.11+ (.env is read from the repo root)
 python -m app.cli refresh-costs           # compute item costs from seeded prices
 python -m app.cli reindex                 # build the RAG index (uses HashEmbedder if no key — dev only)
 uvicorn app.main:app --reload             # http://localhost:8000/docs
@@ -50,6 +50,9 @@ Try the agent without WhatsApp:
 python -m app.cli simulate "Hi, need catering for gruhapravesam on 14th Oct, 120 people all veg in Kompally, budget 500-600 per plate"
 ```
 Admin login: `owner@hec.example` / `Admin@12345` (seeded; change it).
+
+The API startup line reports `llm_key_present`. If it says `false`, the agent runs a scripted
+fallback rather than the conversational one, and the log names the exact `.env` paths checked.
 
 ## WhatsApp setup (Cloud API via your BSP)
 1. Create a Meta app + WhatsApp product (or use a BSP such as Gupshup/Interakt/Wati that exposes the Cloud API).

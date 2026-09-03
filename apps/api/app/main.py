@@ -25,8 +25,14 @@ async def lifespan(app: FastAPI):
 
         scheduler.start()
     st = get_settings()
-    log.info("startup", env=st.app_env, llm=st.resolved_llm_model, llm_key_present=bool(st.anthropic_api_key or st.openai_api_key),
+    has_key = bool(st.anthropic_api_key or st.openai_api_key)
+    log.info("startup", env=st.app_env, llm=st.resolved_llm_model, llm_key_present=has_key,
              effort=st.llm_effort, embeddings=st.resolved_embedding_model)
+    if not has_key:
+        from app.core.config import ENV_FILES
+
+        log.warning("no_llm_key", message="Running the scripted fallback agent. Set ANTHROPIC_API_KEY (or OPENAI_API_KEY) in one of these files.",
+                    env_files=[str(p) for p in ENV_FILES])
     yield
     from app.workers import scheduler
 
