@@ -1,0 +1,19 @@
+# Node
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+# Env
+.env
+.env.local
+.env.*.local
+# Misc
+.DS_Store
+*.log
+coverage/

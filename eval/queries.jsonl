@@ -1,0 +1,30 @@
+{"question": "What non-veg starters do you have?", "expected_source_refs": ["menu_category:starters"], "reference_answer": "Chicken 65, Apollo fish, mutton seekh kebab, chicken malai tikka, prawn fry."}
+{"question": "Do you have Jain options for main course?", "diet": "jain", "expected_source_refs": ["menu_category:main_veg"], "reference_answer": "Yes, Jain-friendly mains include aratikaya vepudu, gutti vankaya without onion garlic, kobbari pachadi, pulihora."}
+{"question": "What is your cancellation policy?", "expected_source_refs": ["file:policies.md"], "reference_answer": "Full refund 15+ days before, 50% within 7-14 days, non-refundable within 72 hours."}
+{"question": "How much advance do I need to pay?", "expected_source_refs": ["file:policies.md"], "reference_answer": "30% advance confirms the booking; balance 3 days before the event."}
+{"question": "What does the Signature package include for 200 guests?", "guest_count": 200, "expected_source_refs": ["package:signature"], "reference_answer": "Welcome drink, two starters, main course with paneer and chicken, live dosa counter, two desserts."}
+{"question": "Which live counters are available?", "expected_source_refs": ["file:faq.md", "menu_category:live_counters"], "reference_answer": "Dosa, chaat, pasta, mocktail, dum biryani, tandoor, pani puri, ice cream rolls, Irani chai."}
+{"question": "Is there any discount for Diwali bookings?", "expected_source_refs": ["discounts:rules"], "reference_answer": "Diwali early bird 8% when booked 14 days before, volume discounts for 300+ guests."}
+{"question": "When is Bathukamma this year?", "expected_source_refs": ["festivals:calendar"], "reference_answer": "Bathukamma 2026 runs 9 to 17 October."}
+{"question": "Do you cater in Shamshabad farmhouses?", "expected_source_refs": ["file:faq.md"], "reference_answer": "Yes with a transport charge; within ORR is standard."}
+{"question": "Minimum guests for live biryani counter?", "expected_source_refs": ["file:faq.md"], "reference_answer": "100+ guests for a live dum biryani counter."}
+{"question": "What desserts do you serve?", "expected_source_refs": ["menu_category:desserts"], "reference_answer": "Gulab jamun, double ka meetha, qubani ka meetha, rasmalai, ice cream, kaddu ki kheer."}
+{"question": "Is all your non-veg halal?", "expected_source_refs": ["file:policies.md"], "reference_answer": "Yes, all non-veg is halal and cooked separately from veg."}
+{"question": "Can I increase guest count after booking?", "expected_source_refs": ["file:policies.md"], "reference_answer": "Yes up to 48 hours before, subject to kitchen capacity."}
+{"question": "Which venues do you recommend in Gachibowli for 400 people?", "guest_count": 400, "expected_source_refs": ["file:venue-guide.md"], "reference_answer": "Palm Meadows Lawn and Aakriti Convention."}
+{"question": "What welcome drinks are there?", "expected_source_refs": ["menu_category:welcome_drinks"], "reference_answer": "Buttermilk, nannari sharbat, watermelon juice, virgin mojito, rose milk."}
+{"question": "Royal package for wedding 450 guests non veg", "diet": "non_veg", "guest_count": 450, "expected_source_refs": ["package:royal"], "reference_answer": "Royal non-veg has mutton biryani, chicken, fish, live tandoor, multiple desserts."}
+{"question": "Do you provide crockery?", "expected_source_refs": ["file:policies.md", "file:faq.md"], "reference_answer": "Premium disposables included; crockery upgrade optional."}
+{"question": "How many servers will be there for 250 guests?", "guest_count": 250, "expected_source_refs": ["file:policies.md"], "reference_answer": "1 server per 25 guests for buffet, so 10 servers."}
+{"question": "Is GST extra?", "expected_source_refs": ["file:policies.md"], "reference_answer": "5% GST applies on top of per-plate price."}
+{"question": "Can we do tasting before booking?", "expected_source_refs": ["file:faq.md"], "reference_answer": "Yes for bookings above 150 guests with 3 days notice."}
+{"question": "What's popular for gruhapravesam lunch?", "expected_source_refs": ["package:", "quote:"], "reference_answer": "Veg Signature with pulihora, live dosa, gulab jamun."}
+{"question": "Ramzan iftar menu options", "expected_source_refs": ["festivals:calendar", "menu_category:main_nonveg"], "reference_answer": "Haleem, dum biryani, dates, fruit chaat, Irani chai."}
+{"question": "Which items contain nuts?", "expected_source_refs": ["menu_category:desserts", "file:policies.md"], "reference_answer": "Allergen info on request; qubani ka meetha and double ka meetha contain nuts."}
+{"question": "Sankranti special sweets", "expected_source_refs": ["menu_category:desserts", "festivals:calendar"], "reference_answer": "Ariselu, pongal, bobbatlu."}
+{"question": "Can you cook at the venue?", "expected_source_refs": ["file:faq.md", "file:policies.md"], "reference_answer": "Live counters cook on site; buffet food arrives in hot boxes within 4 hours of cooking."}
+{"question": "Do you serve alcohol?", "expected_source_refs": ["file:faq.md"], "reference_answer": "No; mocktail counter available."}
+{"question": "How early should I book for December wedding?", "expected_source_refs": ["file:faq.md", "festivals:calendar"], "reference_answer": "6–8 weeks in wedding season."}
+{"question": "What is the price lock certificate?", "expected_source_refs": ["file:policies.md"], "reference_answer": "Issued for bookings above ₹2,00,000, guarantees per-plate price till event."}
+{"question": "Kids friendly starters?", "expected_source_refs": ["menu_category:starters"], "reference_answer": "Corn cheese balls, veg spring rolls, french fries."}
+{"question": "Difference between classic and signature", "expected_source_refs": ["package:classic", "package:signature"], "reference_answer": "Signature adds a live counter and premium mains."}
