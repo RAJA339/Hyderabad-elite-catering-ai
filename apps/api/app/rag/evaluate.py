@@ -12,7 +12,7 @@ from app.core import db
 from app.core.config import get_settings
 from app.rag.retrieval import retrieve
 
-EVAL_FILE = Path(__file__).resolve().parents[3] / "eval" / "queries.jsonl"
+EVAL_FILE = Path(__file__).resolve().parents[4] / "eval" / "queries.jsonl"
 FAITHFULNESS_GATE = 0.85
 
 

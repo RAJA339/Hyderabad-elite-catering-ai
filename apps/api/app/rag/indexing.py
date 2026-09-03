@@ -18,7 +18,7 @@ from app.rag.embeddings import get_embedder
 from app.rag.store import _vec
 
 log = get_logger("rag.indexing")
-KNOWLEDGE_DIR = Path(__file__).resolve().parents[3] / "knowledge"
+KNOWLEDGE_DIR = Path(__file__).resolve().parents[4] / "knowledge"
 
 
 @dataclass
