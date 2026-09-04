@@ -28,13 +28,14 @@ log = get_logger("tools")
 TOOLS: list[dict] = [
     {
         "name": "save_lead_field",
-        "description": "Save qualification details the customer just shared (any subset). Also records consent when the customer agrees.",
+        "description": "Save qualification details the customer just shared (any subset). Also records consent when the customer agrees. Record `motive` the moment you understand what the event is really about — it shapes every menu you propose.",
         "parameters": {"type": "object", "properties": {
             "consent": {"type": "boolean", "description": "true when the customer agreed to be contacted / data stored"},
             "full_name": {"type": "string"}, "email": {"type": "string", "description": "customer email, when they share one — quotes and confirmations are sent there"},
             "event_date": {"type": "string", "description": "ISO date YYYY-MM-DD"},
             "guest_count": {"type": "integer"}, "diet": {"type": "string", "enum": ["veg", "non_veg", "mixed", "jain"]},
             "venue_area": {"type": "string"}, "venue_name": {"type": "string"},
+            "motive": {"type": "string", "description": "Why this event matters, in the customer's own words — who they are hosting and what they want remembered (e.g. 'first function in the new flat, wife's parents visiting from Vijayawada'). One or two sentences."},
             "budget_min_per_plate": {"type": "number"}, "budget_max_per_plate": {"type": "number"}, "occasion": {"type": "string"},
         }},
     },
@@ -93,6 +94,7 @@ TOOLS: list[dict] = [
 class ToolExecutor:
     def __init__(self, tenant_id: UUID, lead: dict, customer: dict):
         self.tenant_id, self.lead, self.customer = tenant_id, lead, customer
+        self.motive: str | None = None   # set by save_lead_field; persisted by the orchestrator
         self.results: list[dict] = []
 
     async def run(self, name: str, args: dict) -> Any:
@@ -148,6 +150,11 @@ class ToolExecutor:
     # ── tools ──────────────────────────────────────────────────────────────────
     async def t_save_lead_field(self, **fields) -> dict:
         consent = fields.pop("consent", None)
+        # The motive is not a column: it lives in the lead's qualification blob, which the
+        # orchestrator round-trips, so it survives without a schema change.
+        motive = (fields.pop("motive", None) or "").strip()
+        if motive:
+            self.motive = motive[:400]
         if consent is not None:
             await leads.record_consent(self.tenant_id, self.customer["id"], "communication", bool(consent), {"via": "agent_tool"})
             await leads.record_consent(self.tenant_id, self.customer["id"], "data_storage", bool(consent), {"via": "agent_tool"})
@@ -171,7 +178,7 @@ class ToolExecutor:
             if self.lead.get("stage") == "new":
                 await leads.set_stage(self.tenant_id, self.lead["id"], "qualifying")
                 self.lead["stage"] = "qualifying"
-        return {"saved": {k: str(v) for k, v in fields.items()}, "consent": consent}
+        return {"saved": {k: str(v) for k, v in fields.items()}, "motive_recorded": bool(self.motive), "consent": consent}
 
     async def t_price_package(self, guest_count: int | None = None, diet: str | None = None, event_date: str | None = None,
                               occasion: str | None = None, budget_min_per_plate=None, budget_max_per_plate=None) -> dict:

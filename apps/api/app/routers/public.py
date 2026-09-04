@@ -6,10 +6,11 @@ from __future__ import annotations
 
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from app.agent.handoff import admin_url_for, build_enquiry_alert
+from app.agent.outreach import compose_opening, greet_new_enquiry
 from app.core import db
 from app.core.cache import rate_limit
 from app.core.config import get_settings
@@ -70,7 +71,7 @@ def normalise_phone(raw: str) -> str | None:
 
 
 @router.post("/enquiry")
-async def enquiry(body: EnquiryIn, tenant_id=Depends(default_tenant)):
+async def enquiry(body: EnquiryIn, background: BackgroundTasks, tenant_id=Depends(default_tenant)):
     """The "call me" form. Lands in the same customer and lead Anvi uses — keyed on the phone
     number, so a later WhatsApp message is the same person — and alerts the owner at once."""
     phone = normalise_phone(body.phone)
@@ -104,12 +105,18 @@ async def enquiry(body: EnquiryIn, tenant_id=Depends(default_tenant)):
     note = f"(website enquiry form) {body.message.strip()}" if body.message and body.message.strip() else "(website enquiry form) Requested a callback."
     if body.guests and body.guests > s.max_guests:
         note += f" Requested {body.guests} guests — above our {s.max_guests} limit."
-    await leads.store_message(tenant_id, lead["id"], "customer", note)
     await leads.create_escalation(tenant_id, lead["id"], "callback requested", note, "normal")
     subject, text = build_enquiry_alert(name=body.name.strip(), phone="+" + phone, email=email, lead=lead, message=body.message, admin_url=admin_url_for(lead))
     await alert_owner(subject, text)
+    # Anvi answers now rather than after the callback: the form is handed to the same agent
+    # pipeline as a chat message, and her priced reply goes out on whatever channel we have.
+    opening = compose_opening(name=body.name, occasion=body.occasion, event_date=body.event_date,
+                              guests=body.guests, diet=body.diet, message=body.message)
+    background.add_task(greet_new_enquiry, tenant_id=tenant_id, wa_id=phone, name=body.name.strip(), email=email, opening=opening)
+
     if email:
         await send_email(email, "We have your catering enquiry",
                          f"Namaste {body.name.split()[0]},\n\nThank you — the Hyderabad Elite Catering team has your details and will call you on +{phone} within two hours (9am–9pm IST).\n\n"
-                         f"Want the menu and price before that? Anvi can do it right now: {s.public_web_url}/#chat\n\nWarmly,\nAnvi")
+                         f"Anvi is putting menu options together for you right now — they will land in your inbox in a minute. "
+                         f"You can also talk to her here: {s.public_web_url}/#chat\n\nWarmly,\nAnvi")
     return {"ok": True, "lead_id": str(lead["id"])}

@@ -177,6 +177,25 @@ channel for the conversation itself.
 **Check it worked:** `/health` now lists `owner_channels`. Then type "I want to talk to a
 person" into the site chat — the owner's Telegram should buzz within a second.
 
+### How Anvi learns
+
+Two mechanisms, both grounded in this kitchen's own data rather than in a model's opinion.
+
+**The sale has phases** (`app/agent/graph.py`). Every turn is classified — discover, design,
+negotiate, close, won — from the lead's stage and whether a quote exists, and the phase
+decides which tools are even on the belt. Anvi cannot lock a price before she has understood
+the event, and cannot keep interrogating someone who is ready to pay. Discovery is where she
+asks *why* the event matters, not just the logistics; that motive is stored on the lead and
+shapes every menu she proposes afterwards.
+
+**The playbook** (`app/agent/playbook.py`). A nightly job aggregates the last six months of
+closed deals into a short briefing that goes into her prompt: which tier books a
+housewarming, the median per-plate that was accepted versus lost in each guest band, the
+dishes that appear in menus people actually book, how many messages a booking usually takes.
+With fewer than five quotes in a category, that category is simply absent — it never guesses.
+The figures are marked internal: they steer which menu she leads with and how she frames it,
+and the hard rule that every rupee shown to a customer comes from a tool call is unchanged.
+
 ### How the price is set (and what to tune)
 
 Three layers, all in `apps/api/app/pricing/`:
@@ -197,6 +216,33 @@ Three layers, all in `apps/api/app/pricing/`:
    estimated close probability, caps the total concession — strong leads on fat margins get
    real festival offers, weak leads and thin margins get the market comparison instead.
    The estimate is stored on the lead and shown in the admin pipeline.
+
+### Anvi on the phone
+
+The call handling is built; it needs a telephony account and a number. Twilio works from
+anywhere and is the fastest to test; Exotel and Plivo are the Indian equivalents and speak
+the same webhook shape.
+
+1. twilio.com → buy a number (an Indian number needs KYC; a US number works for testing and
+   can receive international calls).
+2. Railway → Variables: `VOICE_ENABLED=1`. Optionally `VOICE_LANGUAGE` (default `en-IN`) and
+   `VOICE_TTS_VOICE` (default `Polly.Aditi`, an Indian-English voice).
+3. Twilio → your number → **Voice → A call comes in** → Webhook, POST, to
+   `https://<your-api>.up.railway.app/api/voice/incoming`. Set the status callback to
+   `/api/voice/status`.
+4. Call the number. Anvi greets, listens, and answers with the same brain that answers
+   WhatsApp — the same tools, the same prices, the same guardrails.
+
+What happens on a call: the carrier transcribes each thing the caller says and posts it to
+`/api/voice/turn`; the orchestrator runs one normal turn; the reply is rewritten for the ear
+(`app/voice/speech.py`) — rupees spoken in lakhs, links and emoji removed, trimmed to a few
+sentences ending in a question — and returned as TwiML. A caller is keyed on their phone
+number, so their call and their WhatsApp thread are the same lead.
+
+Cost is per minute and set by the provider. Two honest limits: recognition of heavy
+code-mixing (Telugu inside English) is the provider's, not ours, and this is turn-based
+rather than full-duplex, so a caller cannot interrupt mid-sentence. Both are fixable later
+with a streaming voice model; neither blocks taking real calls today.
 
 ### Getting paid by UPI, with no gateway
 

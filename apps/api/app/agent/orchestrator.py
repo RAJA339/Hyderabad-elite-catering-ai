@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from uuid import UUID
 
+from app.agent import graph, playbook
 from app.agent import qualification as qual
 from app.agent.guardrails import check_reply
 from app.agent.llm import LLMResponse, get_llm
@@ -100,8 +101,17 @@ async def handle_inbound(*, tenant_id: UUID, wa_id: str, text: str, profile_name
         "max_guests": get_settings().max_guests,
         "today": date.today().isoformat(),
     }
+    # Where in the sale we are decides which tools are on the belt and what the next move is.
+    motive = (lead.get("qualification") or {}).get("motive") if isinstance(lead.get("qualification"), dict) else None
+    motive = motive or q.fields.get("motive")
+    phase = graph.classify(lead=lead, quote=quote, text=text, qualified=q.is_qualified)
+    state["phase"] = phase.key
+    state["motive"] = motive
+
     rag = await retrieve(tenant_id=tenant_id, query=text, lead_id=lead["id"], event_date=ev, diet=lead.get("diet"), guest_count=lead.get("guest_count"))
-    system = build_system_prompt(session_state=state, knowledge_blocks=rag.context_blocks, live_enrichment=rag.enrichment)
+    system = build_system_prompt(session_state=state, knowledge_blocks=rag.context_blocks, live_enrichment=rag.enrichment,
+                                 phase_directive=graph.directive_for(phase, motive=motive),
+                                 playbook=await playbook.briefing(tenant_id))
 
     executor = ToolExecutor(tenant_id, lead, customer)
     llm = get_llm()
@@ -110,7 +120,7 @@ async def handle_inbound(*, tenant_id: UUID, wa_id: str, text: str, profile_name
         reply_text = await _scripted_reply(text, q, executor, rag.plan.intent)
     else:
         try:
-            reply_text, tokens_in, tokens_out = await _llm_loop(llm, system, lead, text, executor)
+            reply_text, tokens_in, tokens_out = await _llm_loop(llm, system, lead, text, executor, tools=graph.tools_for(phase, TOOLS))
         except Exception as e:  # noqa: BLE001 - a model outage must not lose the lead
             status = getattr(e, "status_code", None)
             body = getattr(e, "body", None)
@@ -119,6 +129,12 @@ async def handle_inbound(*, tenant_id: UUID, wa_id: str, text: str, profile_name
                       consequence="replied with the scripted fallback")
             reply_text = await _scripted_reply(text, q, executor, rag.plan.intent)
 
+    # A motive learned this turn belongs on the lead, so the next turn and the owner both see it.
+    if executor.motive and executor.motive != motive:
+        q.fields["motive"] = executor.motive
+        lead = await leads.update_lead_fields(lead["id"], {}, qualification={**q.to_dict(), "motive": executor.motive})
+        log.info("motive_learned", lead_id=str(lead["id"]), motive=executor.motive[:120])
+
     reply_text, violations = check_reply(reply_text, executor.results, state, max_guests=get_settings().max_guests)
     escalated = any(r["name"] == "escalate_to_human" for r in executor.results)
     latency = int((time.perf_counter() - t0) * 1000)
@@ -126,12 +142,13 @@ async def handle_inbound(*, tenant_id: UUID, wa_id: str, text: str, profile_name
                               tokens_in=tokens_in, tokens_out=tokens_out, latency_ms=latency)
     if violations:
         log.warning("guardrail_violations", lead_id=str(lead["id"]), violations=violations)
+    log.info("turn", lead_id=str(lead["id"]), phase=phase.key, tools=[r["name"] for r in executor.results], latency_ms=latency)
     buttons = _buttons_for(executor.results)
     attachments = [r["result"]["upi"] for r in executor.results if r["name"] == "record_advance" and isinstance(r.get("result"), dict) and r["result"].get("upi")]
     return AgentReply(reply_text, buttons=buttons, tool_calls=executor.results, escalated=escalated, violations=violations, latency_ms=latency, attachments=attachments)
 
 
-async def _llm_loop(llm, system: str, lead: dict, text: str, executor: ToolExecutor) -> tuple[str, int, int]:
+async def _llm_loop(llm, system: str, lead: dict, text: str, executor: ToolExecutor, tools: list[dict] | None = None) -> tuple[str, int, int]:
     s = get_settings()
     history = await leads.recent_messages(lead["id"], limit=16)
     messages: list = []
@@ -147,7 +164,7 @@ async def _llm_loop(llm, system: str, lead: dict, text: str, executor: ToolExecu
     tin = tout = 0
     resp: LLMResponse | None = None
     for _ in range(MAX_TOOL_ROUNDS):
-        resp = await llm.chat(system=system, messages=messages, tools=TOOLS, max_tokens=s.llm_max_tokens)
+        resp = await llm.chat(system=system, messages=messages, tools=tools or TOOLS, max_tokens=s.llm_max_tokens)
         tin, tout = tin + resp.tokens_in, tout + resp.tokens_out
         if resp.stop_reason == "refusal":
             log.warning("llm_refusal", lead_id=str(lead["id"]), category=resp.refusal_category)

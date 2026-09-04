@@ -90,6 +90,11 @@ class Settings(BaseSettings):
     upi_payee_name: str = "Hyderabad Elite Catering"
     upi_payee_phone: str | None = None
 
+    # Voice. Off until a telephony provider (Twilio, Exotel, Plivo) points its webhook here.
+    voice_enabled: bool = False
+    voice_language: str = "en-IN"
+    voice_tts_voice: str = "Polly.Aditi"   # Indian-English neural voice on Twilio
+
     # Payments
     razorpay_key_id: str | None = None
     razorpay_key_secret: str | None = None

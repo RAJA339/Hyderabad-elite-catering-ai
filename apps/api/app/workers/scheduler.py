@@ -59,6 +59,12 @@ async def job_nightly():
         return
     tid = await default_tenant()
     await index_tenant(tid)
+    # Re-derive what the business has learned about itself from the last six months of deals.
+    from app.agent import playbook
+
+    playbook.invalidate(tid)
+    learned = await playbook.briefing(tid)
+    log.info("playbook_refreshed", chars=len(learned), learning=bool(learned))
     await lifecycle.schedule_festival_reengagement(tid)
     try:
         summary = await run_eval(tid, generate=bool(get_settings().anthropic_api_key or get_settings().openai_api_key))

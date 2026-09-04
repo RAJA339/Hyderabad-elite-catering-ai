@@ -13,7 +13,7 @@ from app.core import db
 from app.core.cache import close_redis
 from app.core.config import get_settings
 from app.core.logging import configure_logging, get_logger
-from app.routers import admin, auth, chat, festivals, health, leads, payments, portal, pricing, public, rag, whatsapp
+from app.routers import admin, auth, chat, festivals, health, leads, payments, portal, pricing, public, rag, voice, whatsapp
 
 log = get_logger("main")
 
@@ -73,5 +73,5 @@ async def _catch_unhandled(request: Request, call_next):
 app.add_middleware(BaseHTTPMiddleware, dispatch=_catch_unhandled)
 app.add_middleware(CORSMiddleware, allow_origins=get_settings().cors_origin_list, allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
-for r in (health, auth, whatsapp, payments, chat, pricing, leads, admin, rag, portal, festivals, public):
+for r in (health, auth, whatsapp, payments, chat, pricing, leads, admin, rag, portal, festivals, public, voice):
     app.include_router(r.router, prefix="/api" if r is not health else "")

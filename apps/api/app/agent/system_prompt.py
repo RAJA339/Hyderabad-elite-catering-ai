@@ -69,8 +69,14 @@ A JSON object follows with: lead, qualification (fields collected and missing), 
 Use it. Never ask for a field that is already present."""
 
 
-def build_system_prompt(*, session_state: dict, knowledge_blocks: list[str], live_enrichment: dict | None) -> str:
-    parts = [SYSTEM_PROMPT, "\n\n### RETRIEVED KNOWLEDGE\n"]
+def build_system_prompt(*, session_state: dict, knowledge_blocks: list[str], live_enrichment: dict | None,
+                        phase_directive: str = "", playbook: str = "") -> str:
+    parts = [SYSTEM_PROMPT]
+    if phase_directive:
+        parts.append("\n\n" + phase_directive)
+    if playbook:
+        parts.append("\n\n" + playbook)
+    parts.append("\n\n### RETRIEVED KNOWLEDGE\n")
     parts.append("\n\n".join(knowledge_blocks) if knowledge_blocks else "(no knowledge retrieved for this turn)")
     if live_enrichment:
         parts.append("\n\n### LIVE DATA (from database, current)\n" + json.dumps(live_enrichment, default=str))

@@ -35,6 +35,9 @@ Copy `.env.example` to `.env` (API) and `apps/web/.env.local` (web).
 | `UPI_VPA` | no | owner's UPI ID (e.g. `9705316350@ybl`); makes the pay link and QR with the amount inside |
 | `UPI_PAYEE_NAME` | no | name shown in the customer's UPI app |
 | `UPI_PAYEE_PHONE` | no | the PhonePe/GPay number, shown for customers who type it in |
+| `VOICE_ENABLED` | no | `1` turns on the phone webhooks at `/api/voice/*` |
+| `VOICE_LANGUAGE` | no | speech recognition + TTS locale, default `en-IN` |
+| `VOICE_TTS_VOICE` | no | provider voice name, default `Polly.Aditi` |
 | `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` | V1 | payment links |
 | `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` / `LANGFUSE_HOST` | no | tracing |
 | `TARGET_MARGIN_PCT` | no | default 40 |
