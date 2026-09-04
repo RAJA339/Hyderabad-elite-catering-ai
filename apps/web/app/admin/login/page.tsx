@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { api, setToken } from "@/lib/api";
@@ -26,6 +27,8 @@ export default function Login() {
         <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" required />
         {err && <p className="text-xs text-bad">{err}</p>}
         <Button type="submit" className="w-full" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</Button>
+        {/* Signing out lands here, and this is the only way back to the public site. */}
+        <Link href="/" className="block text-center text-xs text-muted transition-colors hover:text-fg">← Back to site</Link>
       </form>
     </div>
   );
