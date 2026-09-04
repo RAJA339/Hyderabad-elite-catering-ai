@@ -3,13 +3,15 @@ connections, transactions and JSON/UUID codecs."""
 from __future__ import annotations
 
 import json
+import re
+import socket
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
 
 import asyncpg
 
-from app.core.config import get_settings
+from app.core.config import get_settings  # noqa: F401  (re-exported for tests to clear the cache)
 
 _pool: asyncpg.Pool | None = None
 
@@ -19,11 +21,36 @@ async def _init_conn(conn: asyncpg.Connection) -> None:
     await conn.set_type_codec("json", encoder=json.dumps, decoder=json.loads, schema="pg_catalog")
 
 
+class DatabaseUnreachable(RuntimeError):
+    """Raised with the host and a likely cause instead of a driver traceback."""
+
+
+def _host_of(dsn: str) -> str:
+    m = re.search(r"@([^/?]+)", dsn)
+    return m.group(1) if m else "(unknown host)"
+
+
 async def init_pool() -> asyncpg.Pool:
     global _pool
     if _pool is None:
         dsn = get_settings().database_url.replace("postgresql+asyncpg://", "postgresql://")
-        _pool = await asyncpg.create_pool(dsn, min_size=2, max_size=20, init=_init_conn)
+        host = _host_of(dsn)
+        try:
+            _pool = await asyncpg.create_pool(dsn, min_size=2, max_size=20, init=_init_conn)
+        except socket.gaierror as e:
+            raise DatabaseUnreachable(
+                f"Cannot resolve the database host '{host}'.\n"
+                "DATABASE_URL points at a name that does not exist. Check it with:\n"
+                "    python -m app.cli doctor\n"
+                "A placeholder from the docs copied verbatim is the usual cause."
+            ) from e
+        except (ConnectionRefusedError, OSError) as e:
+            raise DatabaseUnreachable(
+                f"Cannot reach the database at '{host}': {e}.\n"
+                "If it is local, start it with: docker compose up -d db redis"
+            ) from e
+        except asyncpg.InvalidPasswordError as e:
+            raise DatabaseUnreachable(f"The database at '{host}' rejected the username or password in DATABASE_URL.") from e
     return _pool
 
 

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import sys
 
 from app.core import db
@@ -29,6 +30,11 @@ def _mask(key: str, value: str) -> str:
         return "(empty)"
     if any(w in key.upper() for w in SENSITIVE):
         return f"{value[:7]}...{value[-4:]} ({len(value)} chars)" if len(value) > 14 else f"set ({len(value)} chars)"
+    # Connection strings carry a password in the userinfo section. The host is the part worth
+    # seeing when debugging, so keep it and hide the credentials.
+    m = re.match(r"^(\w+://)([^:/@]+):([^@]*)@(.+)$", value)
+    if m:
+        return f"{m.group(1)}{m.group(2)}:****@{m.group(4)}"
     return value
 
 
@@ -113,7 +119,8 @@ def doctor() -> None:
         for k, v in parsed.items():
             flag = ""
             # A shell append onto a file with no trailing newline welds two settings together.
-            if v and "=" in v and not v.lstrip().startswith("#"):
+            # A URL query string also contains '=', so require an env-var-shaped key.
+            if v and not v.lstrip().startswith("#") and re.search(r"[A-Z][A-Z0-9_]{3,}=", v):
                 flag = "   <-- two settings on one line; run set-env to repair"
             print(f"  {k:<26} = {_mask(k, v or '')}{flag}")
         raw = target.read_text(encoding="utf-8-sig", errors="replace")
@@ -221,7 +228,11 @@ async def main(argv: list[str]) -> None:
     if argv and argv[0] == "check-llm":
         await check_llm()
         return
-    await db.init_pool()
+    try:
+        await db.init_pool()
+    except db.DatabaseUnreachable as e:
+        print(f"\n{e}\n")
+        return
     try:
         cmd = argv[0] if argv else "help"
         # bootstrap runs against an empty database, so the tenant lookup cannot come first.
