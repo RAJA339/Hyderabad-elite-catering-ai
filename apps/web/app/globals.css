@@ -13,9 +13,9 @@
   --accent: 208 96 28;        /* tamarind-saffron */
   --accent-2: 245 158 66;
   --accent-fg: 255 255 255;
-  --good: 22 141 78;
+  --good: 5 150 105;         /* emerald: anything positive */
   --warn: 199 111 8;
-  --bad: 201 45 45;
+  --bad: 220 38 38;          /* red: anything negative */
   --glow: 245 158 66;
   /* Chart series (validated: adjacent CVD ΔE ≥ 9, normal ≥ 24 on #fff) and an ordinal saffron ramp */
   --viz-1: #d0601c; --viz-2: #2a78d6; --viz-3: #1baf7a; --viz-4: #4a3aa7;
@@ -31,7 +31,7 @@
   --accent: 245 158 66;
   --accent-2: 255 190 110;
   --accent-fg: 14 13 12;
-  --good: 74 222 128;
+  --good: 52 211 153;        /* emerald, dark */
   --warn: 251 191 36;
   --bad: 248 113 113;
   --glow: 245 158 66;
