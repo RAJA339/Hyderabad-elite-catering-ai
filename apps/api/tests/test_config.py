@@ -90,3 +90,8 @@ def test_password_hash_roundtrip_and_seeded_hash_still_verifies():
     assert verify_password("Admin@12345", seeded) in (True, False)  # format parses, no exception
     assert not verify_password("x", "not-a-hash")
     assert verify_password("a" * 200, hash_password("a" * 200))
+
+
+def test_cors_origins_are_normalised_for_exact_matching():
+    s = Settings(cors_origins="https://a.vercel.app/, https://b.vercel.app ,, http://localhost:3000/")
+    assert s.cors_origin_list == ["https://a.vercel.app", "https://b.vercel.app", "http://localhost:3000"]

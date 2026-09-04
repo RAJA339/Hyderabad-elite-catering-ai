@@ -28,7 +28,11 @@ async def lifespan(app: FastAPI):
     has_key = bool(st.anthropic_api_key or st.openai_api_key)
     log.info("startup", env=st.app_env, llm=st.resolved_llm_model, llm_key_present=has_key,
              workspace_id=st.anthropic_workspace_id or "(not set)",
+             cors_origins=st.cors_origin_list,
              effort=st.llm_effort, embeddings=st.resolved_embedding_model)
+    if st.app_env != "dev" and any("localhost" in o for o in st.cors_origin_list):
+        log.warning("cors_still_localhost", origins=st.cors_origin_list,
+                    message="Browsers on the deployed site will be blocked. Set CORS_ORIGINS to the site's exact address, e.g. https://your-app.vercel.app, with no trailing slash.")
     if not has_key:
         from app.core.config import ENV_FILES
 

@@ -50,9 +50,11 @@ export function ChatWidget({ inline = false }: { inline?: boolean }) {
       setMsgs((m) => [...m, { role: "anvi", text: r.reply, buttons: r.buttons, at: Date.now() }]);
     } catch (e) {
       // Show the real cause: a hidden failure is impossible to fix.
-      const detail = e instanceof ApiError ? `${e.status}: ${e.message}` : e instanceof Error ? e.message : String(e);
-      const hint = e instanceof ApiError ? "" : " — is the API running on port 8000?";
-      setMsgs((m) => [...m, { role: "anvi", error: true, at: Date.now(), text: `I couldn’t reach the kitchen just now.\n${detail}${hint}` }]);
+      const detail =
+        e instanceof ApiUnreachable ? e.message
+        : e instanceof ApiError ? `${e.status}: ${e.message}`
+        : e instanceof Error ? e.message : String(e);
+      setMsgs((m) => [...m, { role: "anvi", error: true, at: Date.now(), text: `I couldn't reach the kitchen just now.\n${detail}` }]);
     } finally {
       setBusy(false);
       box.current?.focus();
