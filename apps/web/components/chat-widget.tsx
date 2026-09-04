@@ -27,6 +27,12 @@ export function ChatWidget({ inline = false }: { inline?: boolean }) {
   const [busy, setBusy] = useState(false);
   const end = useRef<HTMLDivElement>(null);
   const box = useRef<HTMLTextAreaElement>(null);
+  // Timestamps come from Date.now(), so the server and the browser disagree and hydration
+  // fails (React #418). Render them only after mount, when the two can no longer differ.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   useEffect(() => {
     end.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [msgs, busy]);
@@ -85,7 +91,7 @@ export function ChatWidget({ inline = false }: { inline?: boolean }) {
                 {m.buttons.map((b) => <button key={b.id} onClick={() => send(b.title)} className="chip">{b.title}</button>)}
               </div>
             ) : null}
-            <span className="px-1 text-[10px] text-muted/80">{m.role === "anvi" ? "Anvi · " : ""}{fmtTime(m.at)}</span>
+            <span className="px-1 text-[10px] text-muted/80">{m.role === "anvi" ? "Anvi · " : ""}{mounted ? fmtTime(m.at) : ""}</span>
           </div>
         ))}
         {busy && (
