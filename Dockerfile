@@ -1,6 +1,7 @@
-# Build context is the REPOSITORY ROOT, not apps/api: the API reads db/, knowledge/ and
-# eval/ from the repo root at runtime, so they have to be inside the image.
-#   docker build -f apps/api/Dockerfile .
+# This lives at the repository root for two reasons: the build context has to be the root
+# (the API reads db/, knowledge/ and eval/ at runtime, so they must be inside the image),
+# and platforms like Railway pick up a root Dockerfile automatically, with no build config.
+#   docker build .
 FROM python:3.11-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
