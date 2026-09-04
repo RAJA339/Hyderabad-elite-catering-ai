@@ -115,9 +115,12 @@ def _explain(rule: DiscountRule, ctx: QuoteContext, fest: Festival | None, amoun
     )
 
 
-def best_offers(rules: Sequence[DiscountRule], ctx: QuoteContext, min_margin_pct: Decimal) -> list[Offer]:
+def best_offers(rules: Sequence[DiscountRule], ctx: QuoteContext, min_margin_pct: Decimal, max_total_discount: Decimal | None = None) -> list[Offer]:
     """Evaluate all rules; return offers sorted by customer value that keep margin ≥ floor.
-    The first non-stackable offer is the headline; stackable ones may be layered on top."""
+    The first non-stackable offer is the headline; stackable ones may be layered on top.
+    `max_total_discount` is the Kelly-sized cap (pricing/psychology.py): offers that would
+    take the total concession past it are skipped, largest-first, so the best offer that
+    the lead's odds justify is the one that surfaces."""
     festivals = festivals_around(ctx.event_date) + festivals_around(ctx.booking_date, before_days=45)
     seen: dict[str, Festival] = {f.key: f for f in festivals}
     candidates: list[Offer] = []
@@ -137,11 +140,12 @@ def best_offers(rules: Sequence[DiscountRule], ctx: QuoteContext, min_margin_pct
         candidates.append(Offer(rule, amount, margin, _explain(rule, ctx, fest, amount), fest))
 
     candidates.sort(key=lambda o: (-o.amount, o.rule.priority))
-    headline = next((o for o in candidates if not o.rule.stackable), None)
+    cap = max_total_discount if max_total_discount is not None else Decimal("Infinity")
+    headline = next((o for o in candidates if not o.rule.stackable and o.amount <= cap), None)
     result: list[Offer] = [headline] if headline else []
     running = headline.amount if headline else Decimal("0")
     for o in candidates:
-        if o.rule.stackable:
+        if o.rule.stackable and running + o.amount <= cap:
             net = ctx.subtotal - running - o.amount
             margin = q((net - ctx.cost_total) / net * Decimal("100")) if net > 0 else Decimal("0")
             if margin >= max(min_margin_pct, o.rule.min_margin_pct or Decimal("0")):

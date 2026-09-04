@@ -25,6 +25,7 @@ from decimal import ROUND_CEILING, ROUND_HALF_UP, Decimal
 
 from app.pricing.costing import cost_item, q
 from app.pricing.models import Diet, IngredientPrice, ItemCost, MenuItem, PackagePrice, PricedLine, Tier
+from app.pricing.psychology import charm_per_plate
 
 PRICE_POINT_STEP = Decimal("5")        # per-plate prices end in 0 or 5 → premium feel
 SPIKE_THRESHOLD_PCT = Decimal("12")    # 7-day cost rise that counts as a spike
@@ -184,6 +185,12 @@ def price_package(
     surcharge = q(surcharge)
     cost_total = q(cost_total)
 
+    # ── Positioning: the headline per-plate lands on the tier's price point. Upward only. ──
+    raw_pp = (subtotal + surcharge) / guest_count
+    charm_pp = charm_per_plate(raw_pp, tier)
+    positioning_pp = max(Decimal("0"), charm_pp - raw_pp).quantize(Decimal("0.01"))
+    subtotal = q(subtotal + positioning_pp * guest_count)
+
     # ── Discounts: apply in priority order, reject any that breaches the floor ──
     discount_total = Decimal("0")
     applied: list[dict] = []
@@ -208,6 +215,7 @@ def price_package(
 
     trace = {
         "policy": {"target_margin_pct": str(policy.target_margin_pct), "min_margin_pct": str(policy.min_margin_pct), "base_target_pct": str(base_target), "derived": policy.reason},
+        "positioning": {"raw_per_plate": str(raw_pp.quantize(Decimal("0.01"))), "price_point_per_plate": str(charm_pp), "uplift_per_plate": str(positioning_pp)},
         "items": [
             {"slug": c.slug, "food": str(c.food_cost_per_guest), "labour": str(c.labour_per_guest),
              "overhead": str(c.overhead_per_guest), "setup": str(c.setup_per_guest), "total_cost": str(c.total_cost_per_guest),
@@ -222,7 +230,7 @@ def price_package(
         discount_total=discount_total, surcharge_total=surcharge, tax_pct=policy.tax_pct, tax_total=tax,
         grand_total=grand, per_plate=per_plate, margin_pct=margin,
         target_margin_pct=policy.target_margin_pct, min_margin_pct=policy.min_margin_pct,
-        notes=notes, trace=trace,
+        notes=notes, trace=trace, positioning_per_plate=positioning_pp,
     )
 
 

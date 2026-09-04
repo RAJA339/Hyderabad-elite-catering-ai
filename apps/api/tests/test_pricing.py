@@ -158,12 +158,15 @@ def test_floor_follows_target_but_never_drops_below_the_hard_minimum():
 
 
 def test_offers_still_work_on_big_events_because_the_floor_moved():
-    # ~6.5% off a 400-plate quote: lands around 29% margin, under the tenant's 32% floor but
-    # above the 26% the volume band moved it to. A flat floor would have refused it.
-    offer = AppliedDiscount("fest", "Dasara early bird", D("3000"), "festival")
+    # A 400-plate quote is priced near a 32% target with the floor moved down to 26%. An
+    # offer that lands the margin between the two is accepted; one that breaks 26% is not.
+    eff = POLICY.effective("signature", 400)
+    assert eff.min_margin_pct == D("26")
+    offer = AppliedDiscount("fest", "Dasara early bird", D("4500"), "festival")
     big = price_package(tier="signature", items=VEG, prices=PRICES, guest_count=400, diet="veg", policy=POLICY, discounts=[offer])
-    assert big.discount_total == D("3000") and big.margin_ok and big.margin_pct < D("32")
-    greedy = AppliedDiscount("greedy", "Too deep", D("6000"), "festival")
+    assert big.discount_total == D("4500") and big.margin_ok
+    assert eff.min_margin_pct <= big.margin_pct < eff.target_margin_pct
+    greedy = AppliedDiscount("greedy", "Too deep", D("8000"), "festival")
     assert price_package(tier="signature", items=VEG, prices=PRICES, guest_count=400, diet="veg", policy=POLICY, discounts=[greedy]).discount_total == 0
 
 

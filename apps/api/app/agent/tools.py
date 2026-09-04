@@ -10,6 +10,7 @@ from uuid import UUID
 
 from app.agent.handoff import notify_owner, notify_owner_order
 from app.core.config import get_settings
+from app.core.logging import get_logger
 from app.festivals.repository import load_rules
 from app.festivals.rules import QuoteContext, best_offers
 from app.leads import lifecycle
@@ -19,7 +20,10 @@ from app.payments import upi
 from app.pricing.engine import GuestLimitExceeded, price_package
 from app.pricing.market import market_snapshot
 from app.pricing.packages import apply_diet, build_tiers, modify_items, rounded_display
+from app.pricing.psychology import CloseSignals, default_tier_for, estimate_close_probability, kelly_discount_cap, presentation_order, segment_for
 from app.pricing.repository import kitchen_load, load_catalog, load_policy, load_prices, load_templates
+
+log = get_logger("tools")
 
 TOOLS: list[dict] = [
     {
@@ -117,6 +121,22 @@ class ToolExecutor:
     def _portal_url(self, quote: dict) -> str:
         return f"{get_settings().public_web_url}/portal/{quote['portal_token']}"
 
+    async def _close_probability(self, quote_per_plate: Decimal | None) -> Decimal:
+        """Estimate, store on the lead (the dashboard shows it), and return."""
+        from app.core import db
+        msgs = await db.fetchval("SELECT count(*) FROM messages WHERE lead_id=$1 AND role='customer'", self.lead["id"]) or 0
+        ev = self.lead.get("event_date")
+        days = (ev - date.today()).days if ev else None
+        bmax = self.lead.get("budget_max_per_plate")
+        s = CloseSignals(
+            fields_known=sum(1 for k in ("occasion", "event_date", "guest_count", "diet", "venue_area") if self.lead.get(k)),
+            budget_max_per_plate=Decimal(str(bmax)) if bmax else None, quote_per_plate=quote_per_plate, days_to_event=days,
+            customer_messages=int(msgs), repeat_customer=int(self.customer.get("bookings_count") or 0) > 0,
+        )
+        p = estimate_close_probability(s)
+        self.lead = await leads.update_lead_fields(self.lead["id"], {"conversion_probability": p})
+        return p
+
     async def _price_from_slugs(self, tier: str, slugs: list[str], guest_count: int, diet: str, discounts=()) -> tuple[Any, dict, dict]:
         catalog, prices, policy = await load_catalog(self.tenant_id), await load_prices(self.tenant_id), await load_policy(self.tenant_id)
         items = [catalog[s] for s in slugs if s in catalog]
@@ -169,19 +189,30 @@ class ToolExecutor:
                     "suggestion": "Offer the previous or next day, or a second sitting."}
         pkgs = build_tiers(templates=await load_templates(self.tenant_id), catalog=await load_catalog(self.tenant_id), prices=await load_prices(self.tenant_id),
                            guest_count=guest_count, diet=diet, policy=policy, occasion=occasion)
-        # Persist the middle tier as the working quote (customer can switch via modify_quote)
-        chosen = next((p for p in pkgs if p.tier == "signature"), pkgs[0] if pkgs else None)
+        # The working quote is the tier the customer's segment most often books (they can
+        # switch via modify_quote); the presentation order anchors the others around it.
+        bmax = budget_max_per_plate or self.lead.get("budget_max_per_plate")
+        segment = segment_for(budget_max_per_plate=Decimal(str(bmax)) if bmax else None, guest_count=guest_count, occasion=occasion,
+                              tier_per_plate={p.tier: p.per_plate for p in pkgs})
+        want = default_tier_for(segment)
+        chosen = next((p for p in pkgs if p.tier == want), next((p for p in pkgs if p.tier == "signature"), pkgs[0] if pkgs else None))
         saved = None
         if chosen:
             snap = market_snapshot(chosen, await load_prices(self.tenant_id))
             saved = await qrepo.save_quote(self.tenant_id, self.lead["id"], chosen, ev, market_snapshot=snap)
             await lifecycle.on_quote_saved(self.tenant_id, self.lead, saved, changed=False, change_summary=None, portal_url=self._portal_url(saved))
         fit = None
-        if budget_max_per_plate or self.lead.get("budget_max_per_plate"):
-            bmax = Decimal(str(budget_max_per_plate or self.lead["budget_max_per_plate"]))
-            fit = [p.tier for p in pkgs if p.per_plate <= bmax]
+        if bmax:
+            fit = [p.tier for p in pkgs if p.per_plate <= Decimal(str(bmax))]
+        if chosen:
+            await self._close_probability(chosen.per_plate)
+        order = presentation_order(segment)
         return {"event_date": ev.isoformat(), "guest_count": guest_count, "diet": diet, "kitchen_capacity_left": capacity_left,
-                "packages": [rounded_display(p) for p in pkgs], "within_budget": fit,
+                "packages": [rounded_display(p) for p in sorted(pkgs, key=lambda p: order.index(p.tier) if p.tier in order else 9)], "within_budget": fit,
+                "segment": segment, "present_in_order": order, "recommended_tier": chosen.tier if chosen else None,
+                "talk_track": {"value": "Lead with the Classic price, then show what Signature adds for a little more.",
+                               "mid": "Show Royal first as the full experience, then Signature as what most families choose, then Classic.",
+                               "premium": "Present Royal as the default for this occasion; Signature is the sensible alternative."}[segment],
                 "working_quote": {"quote_number": saved["quote_number"], "tier": saved["tier"], "portal_url": self._portal_url(saved)} if saved else None}
 
     async def t_modify_quote(self, tier: str | None = None, guest_count: int | None = None, diet: str | None = None,
@@ -224,10 +255,16 @@ class ToolExecutor:
         ctx = QuoteContext(event_date=prev["event_date"], booking_date=date.today(), guest_count=prev["guest_count"], diet=prev["diet"], tier=prev["tier"] or "signature",
                            occasion=self.lead.get("occasion"), subtotal=Decimal(prev["subtotal"]) + Decimal(prev["surcharge_total"]),
                            cost_total=Decimal(prev["cost_total"]), per_plate=Decimal(prev["per_plate"]))
-        offers = best_offers(await load_rules(self.tenant_id), ctx, policy.min_margin_pct)
+        # How much this lead's odds justify conceding: half-Kelly of the headroom above the floor.
+        eff = policy.effective(prev["tier"] or "signature", prev["guest_count"])
+        p = await self._close_probability(Decimal(prev["per_plate"]))
+        cap = kelly_discount_cap(p=p, subtotal=ctx.subtotal, cost_total=ctx.cost_total, floor_margin_pct=eff.min_margin_pct)
+        offers = best_offers(await load_rules(self.tenant_id), ctx, eff.min_margin_pct, max_total_discount=cap)
         out = {"offers": [{"key": o.rule.key, "name": o.rule.name, "saves": str(o.amount), "explanation": o.explanation,
-                           "festival": o.festival.name if o.festival else None, "margin_after_pct": str(o.margin_after_pct)} for o in offers],
-               "before_total": str(prev["grand_total"]), "before_per_plate": str(prev["per_plate"])}
+                           "festival": o.festival.name if o.festival else None} for o in offers],
+               "before_total": str(prev["grand_total"]), "before_per_plate": str(prev["per_plate"]),
+               "no_offer_reason": None if offers else "No offer fits this quote today — hold the price; the value story is the market comparison."}
+        log.info("offer_sizing", lead_id=str(self.lead["id"]), close_probability=str(p), concession_cap=str(cap), offered=[o.rule.key for o in offers])
         if apply and offers:
             slugs = [i["slug"] for i in await qrepo.quote_items(prev["id"])]
             pkg, _, prices = await self._price_from_slugs(prev["tier"] or "signature", slugs, prev["guest_count"], prev["diet"], discounts=[o.as_applied() for o in offers])

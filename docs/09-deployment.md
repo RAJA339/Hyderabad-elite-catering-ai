@@ -177,6 +177,27 @@ channel for the conversation itself.
 **Check it worked:** `/health` now lists `owner_channels`. Then type "I want to talk to a
 person" into the site chat — the owner's Telegram should buzz within a second.
 
+### How the price is set (and what to tune)
+
+Three layers, all in `apps/api/app/pricing/`:
+
+1. **Cost → margin → price** (`engine.py`). Every dish is a recipe costed on this morning's
+   wholesale rates plus labour and overhead. The tenant's target margin is shaped per
+   quote: Classic a few points under target, Royal a few over; and it steps down with guest
+   count, so big events are cheaper per plate and still bring in more rupees. The floor
+   follows the target but never drops below 24%. Tune with `MARGIN_TIER_ADJ` and
+   `MARGIN_VOLUME_LADDER` against real competitor quotes.
+2. **Positioning** (`psychology.py`). The headline per-plate lands on a price point —
+   Classic ends in 9, the others in 0 — by upward rounding only. The customer's segment
+   (value / mid / premium, from budget or occasion) picks the working tier and the order
+   Anvi presents them in: mid-market buyers see Royal first so Signature lands as the
+   sensible middle.
+3. **Kelly-sized offers** (`psychology.py`, applied in `festivals/rules.py`). A discount is
+   a bet on the booking closing. Half-Kelly of the margin headroom, using the lead's
+   estimated close probability, caps the total concession — strong leads on fat margins get
+   real festival offers, weak leads and thin margins get the market comparison instead.
+   The estimate is stored on the lead and shown in the admin pipeline.
+
 ### Getting paid by UPI, with no gateway
 
 Razorpay needs KYC and days of onboarding. UPI needs a phone number that already has

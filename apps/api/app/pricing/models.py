@@ -92,6 +92,7 @@ class PackagePrice:
     notes: list[str] = field(default_factory=list)
     market_snapshot: dict | None = None
     trace: dict = field(default_factory=dict)
+    positioning_per_plate: Decimal = Decimal("0")  # upward rounding to the tier's price point, folded into subtotal
 
     @property
     def margin_ok(self) -> bool:
