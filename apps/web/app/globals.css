@@ -105,3 +105,28 @@ body {
 .bubble-in { @apply rounded-2xl rounded-bl-md bg-bg-2 px-4 py-3 text-[15px] leading-relaxed; }
 .bubble-out { @apply rounded-2xl rounded-br-md bg-fg px-4 py-3 text-[15px] leading-relaxed text-bg; }
 .chip { @apply hairline inline-flex items-center gap-1.5 rounded-full bg-card px-3 py-1.5 text-xs font-medium transition-all hover:-translate-y-px hover:border-fg/40 hover:shadow-soft active:translate-y-0; }
+
+/* ── Signature table: drawn dishes ──────────────────────────────────────── */
+/* Each tile sets --wash / --wash-dark: a warm ground the vessel sits on. The dish itself is an
+ * SVG (components/dish-art.tsx) that fills the stage and turns slightly on hover. */
+.dish { isolation: isolate; }
+.dish-stage {
+  background:
+    radial-gradient(80% 70% at 50% 45%, var(--wash) 0%, transparent 72%),
+    linear-gradient(180deg, rgb(var(--bg-2) / 0.6), rgb(var(--card) / 0));
+}
+.dark .dish-stage {
+  background:
+    radial-gradient(80% 70% at 50% 45%, var(--wash-dark) 0%, transparent 72%),
+    linear-gradient(180deg, rgb(var(--bg-2) / 0.6), rgb(var(--card) / 0));
+}
+.dish-art {
+  position: absolute; inset: 6%; width: 88%; height: 88%; display: block;
+  transform: rotate(-4deg);
+  transition: transform 1.4s cubic-bezier(.2,.7,.2,1);
+  filter: drop-shadow(0 30px 40px rgb(0 0 0 / 0.18));
+}
+.dark .dish-art { filter: drop-shadow(0 30px 50px rgb(0 0 0 / 0.6)); }
+.dish-stage-lg .dish-art { inset: 2%; width: 96%; height: 96%; }
+.group:hover .dish-art { transform: rotate(0deg) scale(1.03); }
+@media (prefers-reduced-motion: reduce) { .dish-art { transition: none; } }

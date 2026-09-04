@@ -3,6 +3,7 @@ import { ArrowRight, ShieldCheck, Sparkles, TrendingUp, Users } from "lucide-rea
 import { SiteHeader } from "@/components/site-header";
 import { ChatWidget } from "@/components/chat-widget";
 import { MarketTicker } from "@/components/market-ticker";
+import { SignatureTable } from "@/components/signature-table";
 import { Button } from "@/components/ui/button";
 
 const WA = process.env.NEXT_PUBLIC_WA_NUMBER || "919876543210";
@@ -41,7 +42,7 @@ export default function Home() {
                 <div><dt className="label">Menus</dt><dd className="mt-1 text-sm font-medium">Veg · Non-veg · Jain</dd></div>
               </dl>
             </div>
-            <div className="reveal reveal-3 relative">
+            <div id="chat" className="reveal reveal-3 relative scroll-mt-24">
               <div className="pointer-events-none absolute -inset-6 -z-10 rounded-[32px] bg-[radial-gradient(closest-side,rgb(var(--glow)/0.25),transparent)] blur-2xl" />
               <ChatWidget inline />
             </div>
@@ -49,6 +50,8 @@ export default function Home() {
         </section>
 
         <MarketTicker />
+
+        <SignatureTable />
 
         {/* How it works */}
         <section className="mx-auto max-w-6xl px-5 py-20">
