@@ -17,7 +17,7 @@ services:
     # The Dockerfile needs the repo root as its context, not apps/api.
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: apps/api/Dockerfile
     env_file: .env
     environment:
       DATABASE_URL: postgresql://hecai:hecai@db:5432/hecai

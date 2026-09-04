@@ -1,7 +1,7 @@
-# This lives at the repository root for two reasons: the build context has to be the root
-# (the API reads db/, knowledge/ and eval/ at runtime, so they must be inside the image),
-# and platforms like Railway pick up a root Dockerfile automatically, with no build config.
-#   docker build .
+# The build context is the REPOSITORY ROOT, not apps/api: the API reads db/, knowledge/ and
+# eval/ from the repo root at runtime, so they have to be inside the image. Deploy platforms
+# must be pointed at this path with the root as context (see railway.json).
+#   docker build -f apps/api/Dockerfile .
 FROM python:3.11-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
