@@ -1,0 +1,14 @@
+**/node_modules
+**/.next
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
+**/*.pyc
+.git
+.env
+.env.*
+!.env.example
+apps/web
+docs
+scripts
+*.md
