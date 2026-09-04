@@ -93,9 +93,12 @@ async def lock_quote(tenant_id: UUID, quote: dict, valid_until: datetime) -> dic
 async def create_advance_payment(tenant_id: UUID, quote: dict, pct: float) -> dict:
     amount = (Decimal(quote["grand_total"]) * Decimal(str(pct)) / Decimal("100")).quantize(Decimal("1"))
     link = await _razorpay_link(amount, quote)
+    from app.payments import upi
+
+    provider = "razorpay" if link else ("upi" if upi.configured() else "razorpay")
     row = await db.fetchrow(
-        "INSERT INTO payments (tenant_id, quote_id, kind, amount, payment_link) VALUES ($1,$2,'advance',$3,$4) RETURNING *",
-        tenant_id, quote["id"], amount, link)
+        "INSERT INTO payments (tenant_id, quote_id, kind, amount, payment_link, provider) VALUES ($1,$2,'advance',$3,$4,$5) RETURNING *",
+        tenant_id, quote["id"], amount, link, provider)
     return dict(row)
 
 

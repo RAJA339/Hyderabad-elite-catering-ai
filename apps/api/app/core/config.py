@@ -84,6 +84,12 @@ class Settings(BaseSettings):
     email_from: str = "Anvi at Hyderabad Elite Catering <onboarding@resend.dev>"
     owner_email: str | None = None
 
+    # UPI collection. The VPA behind the owner's PhonePe/GPay number (see the app's profile
+    # screen) makes the pay link and QR; the number alone is shown for people who type it.
+    upi_vpa: str | None = None
+    upi_payee_name: str = "Hyderabad Elite Catering"
+    upi_payee_phone: str | None = None
+
     # Payments
     razorpay_key_id: str | None = None
     razorpay_key_secret: str | None = None

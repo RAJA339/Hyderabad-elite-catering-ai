@@ -15,6 +15,7 @@ from app.festivals.rules import QuoteContext, best_offers
 from app.leads import lifecycle
 from app.leads import quotes as qrepo
 from app.leads import repository as leads
+from app.payments import upi
 from app.pricing.engine import GuestLimitExceeded, price_package
 from app.pricing.market import market_snapshot
 from app.pricing.packages import apply_diet, build_tiers, modify_items, rounded_display
@@ -270,8 +271,16 @@ class ToolExecutor:
         pay = await qrepo.create_advance_payment(self.tenant_id, prev, pct or get_settings().advance_pct)
         await lifecycle.on_advance_requested(self.tenant_id, self.lead, prev, pay)
         await notify_owner_order("advance_requested", lead=self.lead, customer=self.customer, quote=prev, amount=str(pay["amount"]))
-        return {"amount": str(pay["amount"]), "payment_link": pay.get("payment_link") or f"{self._portal_url(prev)}#pay", "quote_number": prev["quote_number"],
-                "cancellation_policy": "Full refund of advance up to 15 days before the event; 50% within 7 days; non-refundable within 72 hours."}
+        out = {"amount": str(pay["amount"]), "payment_link": pay.get("payment_link") or f"{self._portal_url(prev)}#pay", "quote_number": prev["quote_number"],
+               "cancellation_policy": "Full refund of advance up to 15 days before the event; 50% within 7 days; non-refundable within 72 hours."}
+        card = None if pay.get("payment_link") else upi.payment_card(amount=pay["amount"], quote_number=prev["quote_number"], payment_id=str(pay["id"]), portal_token=prev.get("portal_token"))
+        if card:
+            out["upi"] = card
+            out["how_to_pay"] = (f"A pay-by-UPI card with the exact amount (₹{out['amount']}) appears right under your message: one tap opens PhonePe, "
+                                 f"Google Pay or any UPI app; on a laptop they scan the QR. "
+                                 + (f"They can also pay directly to {card['phone']}. " if card.get("phone") else "")
+                                 + "Ask them to reply with the 12-digit UTR from their app once paid, so we can confirm the date.")
+        return out
 
     async def t_suggest_upsell(self) -> dict:
         from app.core import db

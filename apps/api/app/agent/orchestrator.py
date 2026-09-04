@@ -37,6 +37,7 @@ class AgentReply:
     escalated: bool = False
     violations: list[str] = field(default_factory=list)
     latency_ms: int = 0
+    attachments: list[dict] = field(default_factory=list)  # rich cards the client renders, e.g. a UPI payment
 
 
 async def handle_inbound(*, tenant_id: UUID, wa_id: str, text: str, profile_name: str | None = None, external_id: str | None = None,
@@ -126,7 +127,8 @@ async def handle_inbound(*, tenant_id: UUID, wa_id: str, text: str, profile_name
     if violations:
         log.warning("guardrail_violations", lead_id=str(lead["id"]), violations=violations)
     buttons = _buttons_for(executor.results)
-    return AgentReply(reply_text, buttons=buttons, tool_calls=executor.results, escalated=escalated, violations=violations, latency_ms=latency)
+    attachments = [r["result"]["upi"] for r in executor.results if r["name"] == "record_advance" and isinstance(r.get("result"), dict) and r["result"].get("upi")]
+    return AgentReply(reply_text, buttons=buttons, tool_calls=executor.results, escalated=escalated, violations=violations, latency_ms=latency, attachments=attachments)
 
 
 async def _llm_loop(llm, system: str, lead: dict, text: str, executor: ToolExecutor) -> tuple[str, int, int]:

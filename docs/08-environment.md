@@ -29,6 +29,9 @@ Copy `.env.example` to `.env` (API) and `apps/web/.env.local` (web).
 | `RESEND_API_KEY` | no | email for customers who gave an address, and the owner's backup |
 | `OWNER_EMAIL` | no | owner alerts by email |
 | `EMAIL_FROM` | no | sender; Resend's onboarding address works without a domain |
+| `UPI_VPA` | no | owner's UPI ID (e.g. `9705316350@ybl`); makes the pay link and QR with the amount inside |
+| `UPI_PAYEE_NAME` | no | name shown in the customer's UPI app |
+| `UPI_PAYEE_PHONE` | no | the PhonePe/GPay number, shown for customers who type it in |
 | `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` | V1 | payment links |
 | `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` / `LANGFUSE_HOST` | no | tracing |
 | `TARGET_MARGIN_PCT` | no | default 40 |

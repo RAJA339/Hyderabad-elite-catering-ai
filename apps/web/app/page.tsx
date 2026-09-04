@@ -4,6 +4,7 @@ import { SiteHeader } from "@/components/site-header";
 import { ChatWidget } from "@/components/chat-widget";
 import { MarketTicker } from "@/components/market-ticker";
 import { SignatureTable } from "@/components/signature-table";
+import { EnquiryForm } from "@/components/enquiry-form";
 import { Button } from "@/components/ui/button";
 
 // Digits with country code. Unset means the site has no WhatsApp number yet, so the
@@ -112,6 +113,8 @@ export default function Home() {
             </div>
           </div>
         </section>
+
+        <EnquiryForm />
 
         <footer className="border-t border-line">
           <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-5 py-8 text-xs text-muted">

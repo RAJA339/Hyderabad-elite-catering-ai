@@ -77,7 +77,8 @@ export type QuoteBundle = {
   items: { slug: string; name: string; category: string; unit_price: string }[];
   lead: { occasion: string | null; venue_area: string | null; guest_count: number; full_name: string | null };
   events: { type: string; payload: Record<string, unknown>; per_plate_before: string | null; per_plate_after: string | null; created_at: string }[];
-  payments?: { kind: string; amount: string; status: string; payment_link: string | null; paid_at: string | null }[];
+  payments?: { id?: string; kind: string; amount: string; status: string; provider?: string; provider_ref?: string | null; payment_link: string | null; paid_at: string | null }[];
+  upi?: import("@/components/upi-pay").UpiCard | null;
   lock: { locked_per_plate: string; valid_until: string; certificate_hash: string } | null;
   chat?: { role: string; content: string; created_at: string }[];
 };

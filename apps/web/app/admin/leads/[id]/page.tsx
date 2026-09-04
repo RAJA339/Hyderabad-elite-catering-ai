@@ -15,6 +15,7 @@ type Detail = {
   messages: { id: string; role: string; kind: string; content: string | null; transcript: string | null; tool_calls: { name: string; args: Record<string, unknown> }[] | null; created_at: string }[];
   quotes: { id: string; quote_number: string; version: number; tier: string; status: string; guest_count: number; per_plate: string; grand_total: string; margin_pct: string; created_at: string }[];
   events: { type: string; actor_type: string; payload: Record<string, unknown>; per_plate_before: string | null; per_plate_after: string | null; created_at: string }[];
+  payments: { id: string; quote_number: string; kind: string; amount: string; provider: string; provider_ref: string | null; status: string; paid_at: string | null; created_at: string }[];
 };
 
 export default function LeadDetail() {
@@ -31,6 +32,7 @@ export default function LeadDetail() {
     setReply(""); load();
   }
   async function setStage(stage: string) { await api(`/api/leads/${id}/stage`, { method: "POST", body: JSON.stringify({ stage }) }); load(); }
+  async function confirmPayment(pid: string) { await api(`/api/leads/${id}/payments/${pid}/confirm`, { method: "POST" }); load(); }
   return (
     <>
       <PageTitle title={l.full_name || l.phone} sub={`${titleCase(l.occasion as string) || "Occasion TBD"} · ${l.event_date ?? "date TBD"} · ${l.guest_count ?? "?"} guests · ${titleCase(l.diet as string) || "diet TBD"} · ${l.venue_area ?? "area TBD"}`}
@@ -74,6 +76,25 @@ export default function LeadDetail() {
                 </li>
               ))}
               {d.quotes.length === 0 && <li className="py-2 text-muted">No quote yet.</li>}
+            </ul>
+          </Card>
+          <Card>
+            <CardTitle>Payments</CardTitle>
+            <ul className="mt-3 divide-y divide-line text-sm">
+              {(d.payments ?? []).map((p) => (
+                <li key={p.id} className="flex items-center justify-between gap-3 py-2">
+                  <span><span className="font-medium">{titleCase(p.kind)}</span> <span className="text-muted">· {p.quote_number} · {titleCase(p.provider)}</span>
+                    {p.provider_ref && <span className="ml-1 font-mono text-[11px] text-muted">{p.provider_ref}</span>}</span>
+                  <span className="flex items-center gap-2 tabular-nums">
+                    <span>{rupees(p.amount)}</span>
+                    {p.status === "paid" ? <Badge tone="good">Paid {dateShort(p.paid_at)}</Badge>
+                      : <Button size="sm" onClick={() => confirmPayment(p.id)} title={p.provider_ref ? "Check the UTR in your UPI app, then confirm" : "Confirm you have received this"}>
+                          {p.provider_ref ? "Confirm received" : "Mark paid"}
+                        </Button>}
+                  </span>
+                </li>
+              ))}
+              {(d.payments ?? []).length === 0 && <li className="py-2 text-muted">No advance requested yet.</li>}
             </ul>
           </Card>
           <Card>

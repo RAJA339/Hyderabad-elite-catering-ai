@@ -78,14 +78,32 @@ def build_order_alert(*, kind: str, lead: dict, customer: dict, quote: dict, ext
         "price_locked": f"🔒 Price locked — {_who(customer)}",
         "advance_requested": f"💳 Advance link sent — {_who(customer)}",
         "advance_paid": f"✅ Advance PAID — {_who(customer)}",
+        "upi_claimed": f"🧾 UPI payment claimed — {_who(customer)}",
     }.get(kind, f"Order update — {_who(customer)}")
     detail = {
         "price_locked": f"{q}: ₹{extra.get('per_plate')}/plate, total ₹{extra.get('total')}, locked till {extra.get('valid_until')}.",
         "advance_requested": f"{q}: ₹{extra.get('amount')} requested. Reminders go out at 24h and 72h.",
         "advance_paid": f"{q}: ₹{extra.get('amount')} received. The booking is confirmed — put it on the kitchen calendar.",
+        "upi_claimed": f"{q}: customer says they paid ₹{extra.get('amount')} by UPI, UTR {extra.get('utr')}. Check your PhonePe/GPay for it, then tap Confirm on the lead page.",
     }.get(kind, q)
     text = "\n".join([head, _what(lead), "", detail, "", *_reach(customer, admin_url)])
     return head, text
+
+
+def build_enquiry_alert(*, name: str, phone: str, email: str | None, lead: dict, message: str | None, admin_url: str | None) -> tuple[str, str]:
+    subject = f"📞 Callback requested — {name}"
+    lines = [subject, _what(lead), "", f"Phone: {phone}"]
+    if email:
+        lines.append(f"Email: {email}")
+    if message:
+        lines.append(f"Note: {message.strip()[:300]}")
+    lines += ["", "They asked to be called back within 2 hours."]
+    link = customer_wa_link(phone)
+    if link:
+        lines.append(f"WhatsApp them: {link}")
+    if admin_url:
+        lines.append(f"Open in admin: {admin_url}")
+    return subject, "\n".join(lines)
 
 
 async def notify_owner(*, lead: dict, customer: dict, reason: str, summary: str, priority: str = "normal") -> bool:

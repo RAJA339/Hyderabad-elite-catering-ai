@@ -7,6 +7,7 @@ import { Card, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MarketWidget } from "@/components/market-widget";
+import { UpiPay } from "@/components/upi-pay";
 
 const CATS = ["welcome_drinks", "starters", "main_veg", "main_nonveg", "rice_breads", "live_counters", "desserts"];
 
@@ -90,8 +91,9 @@ export function QuoteView({ bundle, token, readOnly = false, onUpdate }: { bundl
             <CardTitle>Payments & invoice</CardTitle>
             <ul className="mt-3 space-y-2 text-sm">
               {bundle.payments.length === 0 && <li className="text-muted">Advance of 30% confirms your date. Ask Anvi for the link.</li>}
-              {bundle.payments.map((p, i) => <li key={i} className="flex items-center justify-between"><span>{titleCase(p.kind)} · {rupees(p.amount)}</span>{p.status === "paid" ? <Badge tone="good">Paid {dateShort(p.paid_at)}</Badge> : p.payment_link ? <a className="link text-xs" href={p.payment_link}>Pay now</a> : <Badge>Pending</Badge>}</li>)}
+              {bundle.payments.map((p, i) => <li key={i} className="flex items-center justify-between"><span>{titleCase(p.kind)} · {rupees(p.amount)}</span>{p.status === "paid" ? <Badge tone="good">Paid {dateShort(p.paid_at)}</Badge> : p.payment_link ? <a className="link text-xs" href={p.payment_link}>Pay now</a> : p.provider === "upi" && p.provider_ref ? <Badge tone="warn">Confirming UTR {p.provider_ref}</Badge> : <Badge>Pending</Badge>}</li>)}
             </ul>
+            {bundle.upi && <div id="pay" className="mt-4 scroll-mt-24"><UpiPay card={bundle.upi} /></div>}
           </Card>
         )}
       </div>

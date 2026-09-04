@@ -8,8 +8,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
+from app.agent.handoff import notify_owner_order
 from app.core import db
 from app.core.security import Principal
+from app.leads import lifecycle
+from app.leads import quotes as qrepo
 from app.leads import repository as leads
 from app.routers.deps import manager, owner, staff, tenant_from_principal
 
@@ -36,7 +39,28 @@ async def get_lead(lead_id: UUID, tenant_id=Depends(tenant_from_principal)):
     msgs = await db.fetch("SELECT id, role::text AS role, kind::text AS kind, content, transcript, tool_calls, created_at FROM messages WHERE lead_id=$1 ORDER BY created_at", lead_id)
     quotes = await db.fetch("SELECT id, quote_number, version, tier, status::text AS status, guest_count, per_plate, grand_total, margin_pct, created_at FROM quotes WHERE lead_id=$1 ORDER BY version DESC", lead_id)
     events = await db.fetch("SELECT e.type::text AS type, e.actor_type, e.payload, e.per_plate_before, e.per_plate_after, e.created_at FROM quote_events e JOIN quotes q ON q.id=e.quote_id WHERE q.lead_id=$1 ORDER BY e.created_at", lead_id)
-    return {"lead": dict(lead), "messages": [dict(m) for m in msgs], "quotes": [dict(q) for q in quotes], "events": [dict(e) for e in events]}
+    payments = await db.fetch("SELECT p.id, q.quote_number, p.kind, p.amount, p.provider, p.provider_ref, p.status::text AS status, p.paid_at, p.created_at FROM payments p JOIN quotes q ON q.id=p.quote_id WHERE q.lead_id=$1 ORDER BY p.created_at", lead_id)
+    return {"lead": dict(lead), "messages": [dict(m) for m in msgs], "quotes": [dict(q) for q in quotes], "events": [dict(e) for e in events], "payments": [dict(p) for p in payments]}
+
+
+@router.post("/{lead_id}/payments/{payment_id}/confirm")
+async def confirm_payment(lead_id: UUID, payment_id: UUID, p: Principal = Depends(staff)):
+    """The owner saw the money land (UPI, cash, bank transfer) and confirms it. Same effect as
+    a Razorpay webhook: quote accepted, stage advance_paid, lifetime value updated."""
+    tenant_id = UUID(p.tenant_id)
+    pay = await db.fetchrow("SELECT p.*, q.lead_id FROM payments p JOIN quotes q ON q.id=p.quote_id WHERE p.id=$1 AND q.lead_id=$2 AND p.tenant_id=$3", payment_id, lead_id, tenant_id)
+    if not pay:
+        raise HTTPException(404)
+    if pay["status"] == "paid":
+        return {"ok": True, "already": True}
+    await qrepo.mark_payment_paid(pay["provider_ref"] or f"manual:{p.user_id}", pay["quote_id"], pay["amount"])
+    quote = await db.fetchrow("SELECT * FROM quotes WHERE id=$1", pay["quote_id"])
+    lead = await db.fetchrow("SELECT * FROM leads WHERE id=$1", lead_id)
+    customer = await db.fetchrow("SELECT * FROM customers WHERE id=$1", lead["customer_id"])
+    await lifecycle.on_event_completed(tenant_id, dict(lead), dict(quote))
+    await notify_owner_order("advance_paid", lead=dict(lead), customer=dict(customer or {}), quote=dict(quote), amount=str(pay["amount"]))
+    await leads.audit(tenant_id, "staff", p.user_id, "payment.confirmed", "payment", str(payment_id), {"status": "pending"}, {"status": "paid", "ref": pay["provider_ref"]})
+    return {"ok": True}
 
 
 class StageIn(BaseModel):

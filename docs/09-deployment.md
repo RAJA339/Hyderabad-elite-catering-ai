@@ -177,6 +177,25 @@ channel for the conversation itself.
 **Check it worked:** `/health` now lists `owner_channels`. Then type "I want to talk to a
 person" into the site chat — the owner's Telegram should buzz within a second.
 
+### Getting paid by UPI, with no gateway
+
+Razorpay needs KYC and days of onboarding. UPI needs a phone number that already has
+PhonePe or Google Pay on it.
+
+1. In PhonePe, open your profile and copy the **UPI ID** (looks like `9705316350@ybl`). In
+   Google Pay it is under your name on the profile screen (`…@okaxis`, `…@oksbi`).
+2. Railway → Variables: `UPI_VPA=<that id>`, `UPI_PAYEE_PHONE=919705316350`,
+   `UPI_PAYEE_NAME=Hyderabad Elite Catering`. Redeploy.
+
+From then on, when Anvi locks a price and the customer asks to pay, a card appears under her
+message with the exact advance: one tap opens any UPI app with the amount filled in; on a
+laptop the QR does the same from the phone camera. The customer types the 12-digit UTR their
+app shows, the owner is alerted on every configured channel, and confirms with one tap on
+the lead page in the admin — which marks the quote accepted and moves the lead to
+"advance paid", exactly as a gateway webhook would.
+
+The money goes straight to the owner's account. There is no fee and nothing to reconcile.
+
 ### Getting the Cloud API (India)
 
 Allow three to ten working days, most of it waiting on Meta.

@@ -11,6 +11,7 @@ export function SiteHeader() {
             Hyderabad Elite Catering
           </Link>
           <nav className="flex items-center gap-1 text-[13px]">
+            <Link href="/#enquire" className="hidden rounded-full px-3 py-1.5 text-muted transition-colors hover:bg-line/50 hover:text-fg sm:block">Request a call</Link>
             <Link href="/portal" className="rounded-full px-3 py-1.5 text-muted transition-colors hover:bg-line/50 hover:text-fg">Client portal</Link>
             <Link href="/admin" className="rounded-full px-3 py-1.5 text-muted transition-colors hover:bg-line/50 hover:text-fg">Admin</Link>
             <span className="mx-1 h-4 w-px bg-line" />

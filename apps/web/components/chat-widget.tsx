@@ -3,8 +3,9 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowUp, MessageCircle, Sparkles, X } from "lucide-react";
 import { api, ApiError, ApiUnreachable } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { UpiPay, type UpiCard } from "@/components/upi-pay";
 
-type Msg = { role: "you" | "anvi"; text: string; at: number; buttons?: { id: string; title: string }[]; error?: boolean; handoff?: boolean };
+type Msg = { role: "you" | "anvi"; text: string; at: number; buttons?: { id: string; title: string }[]; error?: boolean; handoff?: boolean; attachments?: UpiCard[] };
 
 // Digits with country code; empty hides the WhatsApp hand-off link.
 const WA = (process.env.NEXT_PUBLIC_WA_NUMBER || "").replace(/\D/g, "");
@@ -47,10 +48,10 @@ export function ChatWidget({ inline = false }: { inline?: boolean }) {
     setInput("");
     setBusy(true);
     try {
-      const r = await api<{ reply: string; buttons: { id: string; title: string }[]; escalated?: boolean }>("/api/chat", {
+      const r = await api<{ reply: string; buttons: { id: string; title: string }[]; escalated?: boolean; attachments?: UpiCard[] }>("/api/chat", {
         method: "POST", auth: false, body: JSON.stringify({ session_id: sid(), message: t }),
       });
-      setMsgs((m) => [...m, { role: "anvi", text: r.reply, buttons: r.buttons, at: Date.now(), handoff: !!r.escalated }]);
+      setMsgs((m) => [...m, { role: "anvi", text: r.reply, buttons: r.buttons, at: Date.now(), handoff: !!r.escalated, attachments: r.attachments }]);
     } catch (e) {
       // Show the real cause: a hidden failure is impossible to fix.
       const detail =
@@ -96,6 +97,7 @@ export function ChatWidget({ inline = false }: { inline?: boolean }) {
                 {m.buttons.map((b) => <button key={b.id} onClick={() => send(b.title)} className="chip">{b.title}</button>)}
               </div>
             ) : null}
+            {m.attachments?.map((a) => a.type === "upi" ? <div key={a.payment_id} className="mt-1 w-full max-w-[92%]"><UpiPay card={a} compact /></div> : null)}
             {m.handoff && WA ? (
               // Anvi has handed this to a person. Website visitors have no WhatsApp thread yet,
               // so give them one: same business number, conversation reference prefilled.

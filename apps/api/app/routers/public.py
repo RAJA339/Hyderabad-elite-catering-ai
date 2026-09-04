@@ -4,9 +4,17 @@ Wholesale rates are the public claim the whole product rests on, so they are ser
 auth. Costs, margins and prices stay behind the staff endpoints."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from datetime import date
 
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
+
+from app.agent.handoff import admin_url_for, build_enquiry_alert
 from app.core import db
+from app.core.cache import rate_limit
+from app.core.config import get_settings
+from app.leads import repository as leads
+from app.notify.channels import alert_owner, send_email
 from app.routers.deps import default_tenant
 
 router = APIRouter(prefix="/public", tags=["public"])
@@ -41,3 +49,67 @@ async def market_ticker(tenant_id=Depends(default_tenant)):
             for r in rows
         ],
     }
+
+
+class EnquiryIn(BaseModel):
+    name: str = Field(min_length=2, max_length=80)
+    phone: str = Field(min_length=10, max_length=20)
+    email: str | None = None
+    occasion: str | None = None
+    event_date: str | None = None
+    guests: int | None = Field(default=None, ge=1, le=5000)
+    diet: str | None = None
+    message: str | None = Field(default=None, max_length=1000)
+
+
+def normalise_phone(raw: str) -> str | None:
+    digits = "".join(ch for ch in raw if ch.isdigit())
+    if len(digits) == 10:
+        digits = "91" + digits
+    return digits if 11 <= len(digits) <= 15 else None
+
+
+@router.post("/enquiry")
+async def enquiry(body: EnquiryIn, tenant_id=Depends(default_tenant)):
+    """The "call me" form. Lands in the same customer and lead Anvi uses — keyed on the phone
+    number, so a later WhatsApp message is the same person — and alerts the owner at once."""
+    phone = normalise_phone(body.phone)
+    if not phone:
+        raise HTTPException(422, "Please enter a phone number with the country code, e.g. +91 98765 43210.")
+    if not await rate_limit(f"rl:enquiry:{phone}", 3, 3600):
+        raise HTTPException(429, "We already have your request — the owner will call shortly.")
+    s = get_settings()
+    customer = await leads.get_or_create_customer(tenant_id, phone, body.name.strip())
+    email = (body.email or "").strip().lower() or None
+    if email and "@" in email:
+        await db.execute("UPDATE customers SET email = $2 WHERE id = $1", customer["id"], email)
+    # Sending the form is the consent: the copy beside the button says so.
+    await leads.record_consent(tenant_id, customer["id"], "communication", True, {"via": "enquiry_form"})
+    await leads.record_consent(tenant_id, customer["id"], "data_storage", True, {"via": "enquiry_form"})
+    lead = await leads.get_or_create_open_lead(tenant_id, customer["id"], source="web_chat")
+    fields: dict = {}
+    if body.occasion:
+        fields["occasion"] = body.occasion.strip().lower().replace(" ", "_")
+    if body.event_date:
+        try:
+            fields["event_date"] = date.fromisoformat(body.event_date)
+        except ValueError:
+            pass
+    if body.guests and body.guests <= s.max_guests:
+        fields["guest_count"] = body.guests
+    if body.diet in ("veg", "non_veg", "mixed", "jain"):
+        fields["diet"] = body.diet
+    if fields:
+        lead = await leads.update_lead_fields(lead["id"], fields)
+    note = f"(website enquiry form) {body.message.strip()}" if body.message and body.message.strip() else "(website enquiry form) Requested a callback."
+    if body.guests and body.guests > s.max_guests:
+        note += f" Requested {body.guests} guests — above our {s.max_guests} limit."
+    await leads.store_message(tenant_id, lead["id"], "customer", note)
+    await leads.create_escalation(tenant_id, lead["id"], "callback requested", note, "normal")
+    subject, text = build_enquiry_alert(name=body.name.strip(), phone="+" + phone, email=email, lead=lead, message=body.message, admin_url=admin_url_for(lead))
+    await alert_owner(subject, text)
+    if email:
+        await send_email(email, "We have your catering enquiry",
+                         f"Namaste {body.name.split()[0]},\n\nThank you — the Hyderabad Elite Catering team has your details and will call you on +{phone} within two hours (9am–9pm IST).\n\n"
+                         f"Want the menu and price before that? Anvi can do it right now: {s.public_web_url}/#chat\n\nWarmly,\nAnvi")
+    return {"ok": True, "lead_id": str(lead["id"])}

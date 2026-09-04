@@ -28,4 +28,5 @@ async def chat(body: ChatIn, tenant_id=Depends(default_tenant)):
     except Exception as e:  # noqa: BLE001 - the widget shows this, so name the real cause
         log.exception("chat_failed", session=body.session_id)
         raise HTTPException(500, f"{type(e).__name__}: {e}") from e
-    return {"reply": r.text, "buttons": [{"id": b[0], "title": b[1]} for b in r.buttons], "escalated": r.escalated, "latency_ms": r.latency_ms}
+    return {"reply": r.text, "buttons": [{"id": b[0], "title": b[1]} for b in r.buttons], "escalated": r.escalated, "latency_ms": r.latency_ms,
+            "attachments": r.attachments}
