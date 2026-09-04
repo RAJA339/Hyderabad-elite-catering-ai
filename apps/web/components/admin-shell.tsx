@@ -20,7 +20,15 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
   const router = useRouter();
   const [ready, setReady] = useState(false);
-  useEffect(() => { if (!getToken()) router.replace("/admin/login"); else setReady(true); }, [router]);
+  // The login page lives under /admin, and Next composes layouts rather than replacing them,
+  // so without this the shell redirects the login page to itself and renders nothing.
+  const isLogin = path === "/admin/login";
+  useEffect(() => {
+    if (isLogin) return;
+    if (!getToken()) router.replace("/admin/login");
+    else setReady(true);
+  }, [router, isLogin]);
+  if (isLogin) return <>{children}</>;
   if (!ready) return null;
   return (
     <div className="flex min-h-dvh">
