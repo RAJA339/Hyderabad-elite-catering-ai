@@ -17,6 +17,9 @@
   --warn: 199 111 8;
   --bad: 201 45 45;
   --glow: 245 158 66;
+  /* Chart series (validated: adjacent CVD ΔE ≥ 9, normal ≥ 24 on #fff) and an ordinal saffron ramp */
+  --viz-1: #d0601c; --viz-2: #2a78d6; --viz-3: #1baf7a; --viz-4: #4a3aa7;
+  --viz-ord-1: #e9a25a; --viz-ord-2: #d0601c; --viz-ord-3: #a4480f; --viz-ord-4: #6b2e0a;
 }
 .dark {
   --bg: 10 10 11;
@@ -32,6 +35,8 @@
   --warn: 251 191 36;
   --bad: 248 113 113;
   --glow: 245 158 66;
+  --viz-1: #d9772a; --viz-2: #3987e5; --viz-3: #199e70; --viz-4: #9085e9;
+  --viz-ord-1: #f3c48e; --viz-ord-2: #e9a25a; --viz-ord-3: #d0601c; --viz-ord-4: #a4480f;
 }
 
 html { color-scheme: light; scroll-behavior: smooth; }

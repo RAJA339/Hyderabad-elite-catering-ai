@@ -2,13 +2,14 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { BarChart3, CalendarDays, Database, LogOut, Sparkles, Tags, Users } from "lucide-react";
+import { BarChart3, CalendarDays, Database, LineChart, LogOut, Sparkles, Tags, Users } from "lucide-react";
 import { getToken, setToken } from "@/lib/api";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/utils";
 
 const nav = [
   { href: "/admin", label: "Overview", icon: BarChart3 },
+  { href: "/admin/insights", label: "Insights", icon: LineChart },
   { href: "/admin/leads", label: "Pipeline", icon: Users },
   { href: "/admin/pricing", label: "Pricing & margin", icon: Tags },
   { href: "/admin/kitchen", label: "Kitchen calendar", icon: CalendarDays },
