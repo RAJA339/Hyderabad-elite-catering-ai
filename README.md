@@ -84,7 +84,7 @@ rotated admin password:
 cd apps/api && python -m app.cli bootstrap
 ```
 The admin password in this README is public, so `bootstrap` replaces it and prints the new
-one once. Summary: web on Vercel (`apps/web`), API on Railway (`apps/api/Dockerfile`,
+one once. Summary: web on Vercel (`apps/web`), API on Railway (Dockerfile builder pointed at `apps/api/Dockerfile`, repo root as context,
 `RUN_SCHEDULER=1` on exactly one instance), Postgres on Neon with `pgvector ≥ 0.7`, Redis
 on Upstash (optional).
 

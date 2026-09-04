@@ -1,6 +1,6 @@
 # The build context is the REPOSITORY ROOT, not apps/api: the API reads db/, knowledge/ and
 # eval/ from the repo root at runtime, so they have to be inside the image. Deploy platforms
-# must be pointed at this path with the root as context (see railway.json).
+# must be pointed at this path with the repo root as the context (see docs/09-deployment.md).
 #   docker build -f apps/api/Dockerfile .
 FROM python:3.11-slim
 
