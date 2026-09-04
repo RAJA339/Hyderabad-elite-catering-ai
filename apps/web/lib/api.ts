@@ -14,12 +14,35 @@ export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
 
+/** A failed fetch says only "Failed to fetch", which hides whether the API URL is wrong,
+ * unreachable, blocked by CORS, or http:// on an https:// page. Name the URL and the
+ * likeliest cause instead. */
+export class ApiUnreachable extends Error {
+  constructor(public url: string, cause: unknown) {
+    const page = typeof window === "undefined" ? "" : window.location.origin;
+    const mixed = page.startsWith("https://") && url.startsWith("http://");
+    const hint = url.includes("localhost")
+      ? "The site is using the default localhost API. Set NEXT_PUBLIC_API_URL to your deployed API and redeploy."
+      : mixed
+        ? "The page is https but the API URL is http, so the browser blocks it. Use https:// in NEXT_PUBLIC_API_URL."
+        : "The API is unreachable, or CORS_ORIGINS on the API does not list this site's exact address.";
+    super(`Could not reach ${url}. ${hint}`);
+    this.cause = cause;
+  }
+}
+
 export async function api<T = unknown>(path: string, init: RequestInit & { auth?: boolean } = {}): Promise<T> {
   const { auth = true, ...rest } = init;
   const headers: Record<string, string> = { "Content-Type": "application/json", ...(rest.headers as Record<string, string>) };
   const token = auth ? getToken() : null;
   if (token) headers.Authorization = `Bearer ${token}`;
-  const r = await fetch(`${API}${path}`, { ...rest, headers, cache: "no-store" });
+  const url = `${API}${path}`;
+  let r: Response;
+  try {
+    r = await fetch(url, { ...rest, headers, cache: "no-store" });
+  } catch (e) {
+    throw new ApiUnreachable(url, e);
+  }
   if (r.status === 401 && auth && typeof window !== "undefined" && !location.pathname.startsWith("/admin/login")) {
     setToken(null);
     location.href = "/admin/login";

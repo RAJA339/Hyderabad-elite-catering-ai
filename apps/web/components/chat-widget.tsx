@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { ArrowUp, MessageCircle, Sparkles, X } from "lucide-react";
-import { api, ApiError } from "@/lib/api";
+import { api, ApiError, ApiUnreachable } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 type Msg = { role: "you" | "anvi"; text: string; at: number; buttons?: { id: string; title: string }[]; error?: boolean };

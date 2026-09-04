@@ -12,7 +12,15 @@ export default function PortalLogin() {
   const [code, setCode] = useState("");
   const [step, setStep] = useState<"phone" | "code">("phone");
   const [err, setErr] = useState<string | null>(null);
-  async function request() { setErr(null); try { await api("/api/portal/otp/request", { method: "POST", auth: false, body: JSON.stringify({ phone }) }); setStep("code"); } catch (e) { setErr((e as Error).message); } }
+  async function request() {
+    setErr(null);
+    try {
+      await api("/api/portal/otp/request", { method: "POST", auth: false, body: JSON.stringify({ phone }) });
+      setStep("code");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    }
+  }
   async function verify() { setErr(null); try { const res = await api<{ portal_token: string | null }>("/api/portal/otp/verify", { method: "POST", auth: false, body: JSON.stringify({ phone, code }) }); if (res.portal_token) r.push(`/portal/${res.portal_token}`); else setErr("No quote found for this number yet."); } catch (e) { setErr((e as Error).message); } }
   return (
     <>
