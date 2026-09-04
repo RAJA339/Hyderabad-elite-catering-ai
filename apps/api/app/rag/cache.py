@@ -7,7 +7,7 @@ import json
 import math
 from collections.abc import Sequence
 
-from app.core.cache import get_redis
+from app.core.cache import get_redis, redis_degraded
 from app.core.config import get_settings
 
 
@@ -32,9 +32,13 @@ class SemanticCache:
 
     async def get(self, embedding: Sequence[float], fhash: str) -> dict | None:
         s = get_settings()
-        r = get_redis()
-        version = await self._version()
-        entries = await r.lrange(self.key, 0, 199)
+        try:
+            r = get_redis()
+            version = await self._version()
+            entries = await r.lrange(self.key, 0, 199)
+        except Exception as e:  # noqa: BLE001 — a cache miss is always a safe answer
+            redis_degraded("semcache_get", e)
+            return None
         for raw in entries:
             e = json.loads(raw)
             if e["fhash"] != fhash or e["version"] != version:
@@ -45,8 +49,11 @@ class SemanticCache:
 
     async def put(self, embedding: Sequence[float], fhash: str, payload: dict) -> None:
         s = get_settings()
-        r = get_redis()
-        entry = json.dumps({"embedding": [round(x, 5) for x in embedding], "fhash": fhash, "version": await self._version(), "payload": payload})
-        await r.lpush(self.key, entry)
-        await r.ltrim(self.key, 0, 199)
-        await r.expire(self.key, s.semantic_cache_ttl_s)
+        try:
+            r = get_redis()
+            entry = json.dumps({"embedding": [round(x, 5) for x in embedding], "fhash": fhash, "version": await self._version(), "payload": payload})
+            await r.lpush(self.key, entry)
+            await r.ltrim(self.key, 0, 199)
+            await r.expire(self.key, s.semantic_cache_ttl_s)
+        except Exception as e:  # noqa: BLE001 — failing to memoise must not fail the answer
+            redis_degraded("semcache_put", e)
