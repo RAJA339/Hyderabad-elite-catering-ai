@@ -73,6 +73,9 @@ class Settings(BaseSettings):
     whatsapp_access_token: str | None = None
     whatsapp_phone_number_id: str | None = None
     whatsapp_api_version: str = "v21.0"
+    # The owner's personal WhatsApp (digits with country code, e.g. 91XXXXXXXXXX). Anvi's
+    # business number cannot be opened in the WhatsApp app, so escalations are pushed here.
+    owner_wa_number: str | None = None
 
     # Payments
     razorpay_key_id: str | None = None

@@ -6,7 +6,9 @@ import { MarketTicker } from "@/components/market-ticker";
 import { SignatureTable } from "@/components/signature-table";
 import { Button } from "@/components/ui/button";
 
-const WA = process.env.NEXT_PUBLIC_WA_NUMBER || "919876543210";
+// Digits with country code. Unset means the site has no WhatsApp number yet, so the
+// button is hidden rather than pointed at a placeholder that belongs to a stranger.
+const WA = (process.env.NEXT_PUBLIC_WA_NUMBER || "").replace(/\D/g, "");
 
 const steps = [
   ["01", "Tell Anvi the basics", "Occasion, date, guest count, veg or non-veg. Three to five messages, no forms."],
@@ -31,9 +33,13 @@ export default function Home() {
                 Anvi qualifies your event, designs three complete menus, prices them on live ingredient rates, and locks the number — before you finish your chai.
               </p>
               <div className="reveal reveal-4 mt-8 flex flex-wrap items-center gap-3">
-                <a href={`https://wa.me/${WA}?text=Hi%20Anvi%2C%20I%27d%20like%20to%20plan%20a%20catering%20menu`} target="_blank" rel="noreferrer">
-                  <Button size="lg" className="group gap-2 pr-4">Chat on WhatsApp <ArrowRight size={16} className="transition-transform group-hover:translate-x-0.5" /></Button>
-                </a>
+                {WA ? (
+                  <a href={`https://wa.me/${WA}?text=Hi%20Anvi%2C%20I%27d%20like%20to%20plan%20a%20catering%20menu`} target="_blank" rel="noreferrer">
+                    <Button size="lg" className="group gap-2 pr-4">Chat on WhatsApp <ArrowRight size={16} className="transition-transform group-hover:translate-x-0.5" /></Button>
+                  </a>
+                ) : (
+                  <a href="#chat"><Button size="lg" className="group gap-2 pr-4">Chat with Anvi <ArrowRight size={16} className="transition-transform group-hover:translate-x-0.5" /></Button></a>
+                )}
                 <Link href="/portal"><Button size="lg" variant="secondary">Open my quote</Button></Link>
               </div>
               <dl className="reveal reveal-5 mt-10 grid max-w-md grid-cols-3 gap-6 border-t border-line/80 pt-6">

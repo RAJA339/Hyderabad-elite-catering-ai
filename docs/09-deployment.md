@@ -117,11 +117,77 @@ Your shareable link is the Vercel URL.
 
 ## 7. WhatsApp, when you are ready
 
-Local testing needs none of this; the widget on the site is enough. To take real WhatsApp
-messages, set `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_APP_SECRET`
-and `WHATSAPP_VERIFY_TOKEN` on Railway, then point the Meta webhook at
-`https://<your-api>/api/webhooks/whatsapp` and subscribe to `messages`. Submit the utility
-templates listed in `db/seed/seed.sql` for approval before sending any.
+Local testing needs none of this; the widget on the site is enough. Everything below is
+already built — webhook, signature check, media, buttons, hand-off — and waits on four
+environment variables and a Meta account.
+
+### Two numbers, not one
+
+A number registered with the Cloud API **cannot be used in the WhatsApp app any more**.
+Anvi answers on it through the API, and nobody can open it on a phone. So:
+
+| Number | Who uses it | Where it goes |
+|---|---|---|
+| **Business number** — a fresh SIM, never used on WhatsApp | Customers message it; Anvi replies | `WHATSAPP_PHONE_NUMBER_ID` on Railway, `NEXT_PUBLIC_WA_NUMBER` on Vercel |
+| **Owner's own number** — stays on the WhatsApp app as today | Receives an alert every time Anvi hands off | `OWNER_WA_NUMBER` on Railway |
+
+Do not put the owner's personal number on the API. Registering it would remove it from
+their phone.
+
+Until the API is approved, `NEXT_PUBLIC_WA_NUMBER` can be the owner's number: the site's
+"Chat on WhatsApp" button then opens a normal chat that the owner answers by hand. Set the
+business number there once Anvi is live on it.
+
+### What the owner receives
+
+When a customer asks for a person, or Anvi decides she needs one, the owner gets one
+WhatsApp message on their own phone: who, the event, why, a `wa.me` link to message the
+customer from their personal number, and a link to the lead in the admin, from which a
+reply goes out as the business number. Website-chat customers have no WhatsApp thread, so
+they are offered a "continue on WhatsApp" link into the business number instead.
+
+### Getting the Cloud API (India)
+
+Allow three to ten working days, most of it waiting on Meta.
+
+1. **Meta Business Portfolio** at business.facebook.com, then **Settings → Security Centre →
+   Start verification**. You need a document that names the business: GST certificate,
+   Udyam (MSME) registration, Shop & Establishment licence, or Certificate of Incorporation.
+   Verification takes two to four days; nothing else can go live before it.
+2. **developers.facebook.com → Create app → Business**. Add the **WhatsApp** product. This
+   creates the WhatsApp Business Account (WABA) and a test number. Ignore the test number.
+3. **WhatsApp → API Setup → Add phone number.** Enter the business SIM, take the SMS code,
+   set a six-digit two-step PIN and keep it. Note the **Phone number ID** shown beside it.
+   Set the display name here; it is reviewed within a day once the business is verified.
+4. **A permanent token.** The token on the API Setup page expires in 24 hours. Go to
+   **Business settings → Users → System users → Add**, role Admin, then **Generate token**
+   with `whatsapp_business_messaging` and `whatsapp_business_management`. That token does
+   not expire.
+5. **App secret.** App → **Settings → Basic → App secret → Show**.
+6. **Railway → Variables**:
+
+   ```
+   WHATSAPP_ACCESS_TOKEN=<system user token>
+   WHATSAPP_PHONE_NUMBER_ID=<from step 3>
+   WHATSAPP_APP_SECRET=<from step 5>
+   WHATSAPP_VERIFY_TOKEN=<any long random string you choose>
+   OWNER_WA_NUMBER=91XXXXXXXXXX
+   ```
+
+   Redeploy, and wait for `/health` to come back.
+7. **Webhook.** App → WhatsApp → **Configuration → Callback URL**:
+   `https://<your-api>.up.railway.app/api/webhooks/whatsapp`, verify token as in step 6,
+   **Verify and save**. Then under **Webhook fields**, subscribe to **messages**.
+8. **Templates.** Anything sent to a customer more than 24 hours after their last message
+   must be an approved template. Submit the utility templates listed in
+   `db/seed/seed.sql` under WhatsApp Manager → Message templates; approval takes a day.
+9. **Test.** WhatsApp the business number from any phone. Anvi replies. Type "I want to talk
+   to a person" — the owner's phone buzzes.
+10. **Vercel**: set `NEXT_PUBLIC_WA_NUMBER` to the business number and redeploy.
+
+Meta pricing is per message, with the first 1,000 service conversations a month free;
+marketing templates are the expensive category. A qualification-to-quote conversation is a
+service conversation.
 
 ## Keeping prices fresh
 

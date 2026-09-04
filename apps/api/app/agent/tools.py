@@ -8,6 +8,7 @@ from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
+from app.agent.handoff import notify_owner
 from app.core.config import get_settings
 from app.festivals.repository import load_rules
 from app.festivals.rules import QuoteContext, best_offers
@@ -282,7 +283,8 @@ class ToolExecutor:
 
     async def t_escalate_to_human(self, reason: str, summary: str, priority: str = "normal") -> dict:
         eid = await leads.create_escalation(self.tenant_id, self.lead["id"], reason, summary, priority)
-        return {"escalated": True, "escalation_id": str(eid), "eta": "within 2 hours (9am–9pm IST)"}
+        alerted = await notify_owner(lead=self.lead, customer=self.customer, reason=reason, summary=summary, priority=priority)
+        return {"escalated": True, "escalation_id": str(eid), "owner_alerted": alerted, "eta": "within 2 hours (9am–9pm IST)"}
 
 
 def _resolve_slug(x: str, catalog: dict, allow_tag: bool = False) -> str | None:

@@ -23,6 +23,7 @@ Copy `.env.example` to `.env` (API) and `apps/web/.env.local` (web).
 | `WHATSAPP_ACCESS_TOKEN` | yes | Cloud API bearer token |
 | `WHATSAPP_PHONE_NUMBER_ID` | yes | sending number |
 | `WHATSAPP_API_VERSION` | no | default `v21.0` |
+| `OWNER_WA_NUMBER` | no | owner's personal WhatsApp, digits with country code; receives escalation alerts |
 | `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` | V1 | payment links |
 | `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` / `LANGFUSE_HOST` | no | tracing |
 | `TARGET_MARGIN_PCT` | no | default 40 |

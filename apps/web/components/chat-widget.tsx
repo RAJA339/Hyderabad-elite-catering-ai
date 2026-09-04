@@ -4,7 +4,10 @@ import { ArrowUp, MessageCircle, Sparkles, X } from "lucide-react";
 import { api, ApiError, ApiUnreachable } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-type Msg = { role: "you" | "anvi"; text: string; at: number; buttons?: { id: string; title: string }[]; error?: boolean };
+type Msg = { role: "you" | "anvi"; text: string; at: number; buttons?: { id: string; title: string }[]; error?: boolean; handoff?: boolean };
+
+// Digits with country code; empty hides the WhatsApp hand-off link.
+const WA = (process.env.NEXT_PUBLIC_WA_NUMBER || "").replace(/\D/g, "");
 
 const sid = () => {
   try {
@@ -44,10 +47,10 @@ export function ChatWidget({ inline = false }: { inline?: boolean }) {
     setInput("");
     setBusy(true);
     try {
-      const r = await api<{ reply: string; buttons: { id: string; title: string }[] }>("/api/chat", {
+      const r = await api<{ reply: string; buttons: { id: string; title: string }[]; escalated?: boolean }>("/api/chat", {
         method: "POST", auth: false, body: JSON.stringify({ session_id: sid(), message: t }),
       });
-      setMsgs((m) => [...m, { role: "anvi", text: r.reply, buttons: r.buttons, at: Date.now() }]);
+      setMsgs((m) => [...m, { role: "anvi", text: r.reply, buttons: r.buttons, at: Date.now(), handoff: !!r.escalated }]);
     } catch (e) {
       // Show the real cause: a hidden failure is impossible to fix.
       const detail =
@@ -92,6 +95,14 @@ export function ChatWidget({ inline = false }: { inline?: boolean }) {
               <div className="mt-1 flex max-w-[86%] flex-wrap gap-1.5">
                 {m.buttons.map((b) => <button key={b.id} onClick={() => send(b.title)} className="chip">{b.title}</button>)}
               </div>
+            ) : null}
+            {m.handoff && WA ? (
+              // Anvi has handed this to a person. Website visitors have no WhatsApp thread yet,
+              // so give them one: same business number, conversation reference prefilled.
+              <a href={`https://wa.me/${WA}?text=${encodeURIComponent(`Hi, continuing my catering enquiry from the website (ref ${sid().slice(0, 8)})`)}`} target="_blank" rel="noreferrer"
+                 className="chip mt-1 border-accent/40 text-fg">
+                <MessageCircle size={13} className="text-accent" /> Continue with our team on WhatsApp
+              </a>
             ) : null}
             <span className="px-1 text-[10px] text-muted/80">{m.role === "anvi" ? "Anvi · " : ""}{mounted ? fmtTime(m.at) : ""}</span>
           </div>
