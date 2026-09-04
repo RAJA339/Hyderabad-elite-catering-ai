@@ -45,6 +45,13 @@ async def init_pool() -> asyncpg.Pool:
                 "A placeholder from the docs copied verbatim is the usual cause."
             ) from e
         except (ConnectionRefusedError, OSError) as e:
+            local = host.split(":")[0] in ("localhost", "127.0.0.1", "::1")
+            if local and get_settings().app_env != "dev":
+                raise DatabaseUnreachable(
+                    f"DATABASE_URL is not set, so it defaulted to '{host}' - and nothing is listening there.\n"
+                    "On Railway, Render or Fly, add DATABASE_URL to the service's variables and redeploy.\n"
+                    "It is the same connection string you used for `python -m app.cli bootstrap`."
+                ) from e
             raise DatabaseUnreachable(
                 f"Cannot reach the database at '{host}': {e}.\n"
                 "If it is local, start it with: docker compose up -d db redis"

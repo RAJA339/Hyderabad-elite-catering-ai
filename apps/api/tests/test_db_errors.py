@@ -38,3 +38,15 @@ async def test_refused_connection_suggests_starting_docker(monkeypatch):
 async def test_bad_credentials_are_reported_as_credentials(monkeypatch):
     msg = await _expect_unreachable(monkeypatch, asyncpg.InvalidPasswordError("nope"), "postgresql://u:p@ep-x.aws.neon.tech/neondb")
     assert "rejected the username or password" in msg
+
+
+async def test_prod_with_default_localhost_says_the_variable_is_missing(monkeypatch):
+    monkeypatch.setenv("APP_ENV", "prod")
+    msg = await _expect_unreachable(monkeypatch, ConnectionRefusedError(111, "refused"), "postgresql://hecai:hecai@localhost:5432/hecai")
+    assert "DATABASE_URL is not set" in msg and "variables" in msg
+
+
+async def test_dev_with_localhost_still_suggests_docker(monkeypatch):
+    monkeypatch.setenv("APP_ENV", "dev")
+    msg = await _expect_unreachable(monkeypatch, ConnectionRefusedError(111, "refused"), "postgresql://hecai:hecai@localhost:5432/hecai")
+    assert "docker compose" in msg
