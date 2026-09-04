@@ -8,7 +8,7 @@ from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
-from app.agent.handoff import notify_owner
+from app.agent.handoff import notify_owner, notify_owner_order
 from app.core.config import get_settings
 from app.festivals.repository import load_rules
 from app.festivals.rules import QuoteContext, best_offers
@@ -26,7 +26,8 @@ TOOLS: list[dict] = [
         "description": "Save qualification details the customer just shared (any subset). Also records consent when the customer agrees.",
         "parameters": {"type": "object", "properties": {
             "consent": {"type": "boolean", "description": "true when the customer agreed to be contacted / data stored"},
-            "full_name": {"type": "string"}, "event_date": {"type": "string", "description": "ISO date YYYY-MM-DD"},
+            "full_name": {"type": "string"}, "email": {"type": "string", "description": "customer email, when they share one — quotes and confirmations are sent there"},
+            "event_date": {"type": "string", "description": "ISO date YYYY-MM-DD"},
             "guest_count": {"type": "integer"}, "diet": {"type": "string", "enum": ["veg", "non_veg", "mixed", "jain"]},
             "venue_area": {"type": "string"}, "venue_name": {"type": "string"},
             "budget_min_per_plate": {"type": "number"}, "budget_max_per_plate": {"type": "number"}, "occasion": {"type": "string"},
@@ -134,6 +135,11 @@ class ToolExecutor:
             from app.core import db
             await db.execute("UPDATE customers SET full_name = $2 WHERE id = $1", self.customer["id"], name)
             self.customer["full_name"] = name
+        email = (fields.pop("email", None) or "").strip().lower()
+        if email and "@" in email:
+            from app.core import db
+            await db.execute("UPDATE customers SET email = $2 WHERE id = $1", self.customer["id"], email)
+            self.customer["email"] = email
         if "guest_count" in fields and int(fields["guest_count"]) > get_settings().max_guests:
             requested = fields.pop("guest_count")
             return {"error": "guest_limit", "requested": requested, "max_guests": get_settings().max_guests}
@@ -252,6 +258,8 @@ class ToolExecutor:
         valid_until = datetime.combine(prev["event_date"], datetime.max.time(), tzinfo=UTC)
         lock = await qrepo.lock_quote(self.tenant_id, prev, valid_until)
         await lifecycle.on_price_locked(self.tenant_id, self.lead, prev, lock, self._portal_url(prev))
+        await notify_owner_order("price_locked", lead=self.lead, customer=self.customer, quote=prev,
+                                 per_plate=str(lock["locked_per_plate"]), total=str(lock["locked_total"]), valid_until=valid_until.date().isoformat())
         return {"locked": True, "quote_number": prev["quote_number"], "per_plate": str(lock["locked_per_plate"]), "total": str(lock["locked_total"]),
                 "valid_until": valid_until.date().isoformat(), "certificate": lock["certificate_hash"][:12].upper(), "portal_url": self._portal_url(prev)}
 
@@ -261,6 +269,7 @@ class ToolExecutor:
             return {"error": "no_quote"}
         pay = await qrepo.create_advance_payment(self.tenant_id, prev, pct or get_settings().advance_pct)
         await lifecycle.on_advance_requested(self.tenant_id, self.lead, prev, pay)
+        await notify_owner_order("advance_requested", lead=self.lead, customer=self.customer, quote=prev, amount=str(pay["amount"]))
         return {"amount": str(pay["amount"]), "payment_link": pay.get("payment_link") or f"{self._portal_url(prev)}#pay", "quote_number": prev["quote_number"],
                 "cancellation_policy": "Full refund of advance up to 15 days before the event; 50% within 7 days; non-refundable within 72 hours."}
 

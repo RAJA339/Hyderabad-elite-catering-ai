@@ -24,6 +24,11 @@ Copy `.env.example` to `.env` (API) and `apps/web/.env.local` (web).
 | `WHATSAPP_PHONE_NUMBER_ID` | yes | sending number |
 | `WHATSAPP_API_VERSION` | no | default `v21.0` |
 | `OWNER_WA_NUMBER` | no | owner's personal WhatsApp, digits with country code; receives escalation alerts |
+| `TELEGRAM_BOT_TOKEN` | no | from @BotFather; owner alerts on Telegram, no approvals needed |
+| `TELEGRAM_CHAT_ID` | no | the owner's chat id with that bot |
+| `RESEND_API_KEY` | no | email for customers who gave an address, and the owner's backup |
+| `OWNER_EMAIL` | no | owner alerts by email |
+| `EMAIL_FROM` | no | sender; Resend's onboarding address works without a domain |
 | `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` | V1 | payment links |
 | `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` / `LANGFUSE_HOST` | no | tracing |
 | `TARGET_MARGIN_PCT` | no | default 40 |

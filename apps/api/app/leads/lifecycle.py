@@ -79,7 +79,7 @@ async def dispatch_due(limit: int = 100) -> int:
     from app.whatsapp.client import WhatsAppClient
 
     rows = await db.fetch(
-        """SELECT n.*, c.wa_id, c.deleted_at,
+        """SELECT n.*, c.wa_id, c.email, c.deleted_at,
                   (SELECT granted FROM consents WHERE customer_id = n.customer_id AND purpose = 'communication' AND revoked_at IS NULL) AS consent
            FROM notifications n JOIN customers c ON c.id = n.customer_id
            WHERE n.status = 'queued' AND n.scheduled_for <= now() ORDER BY n.scheduled_for LIMIT $1""", limit)
@@ -91,16 +91,41 @@ async def dispatch_due(limit: int = 100) -> int:
             continue
         tpl = await db.fetchrow("SELECT meta_name, language, params_schema FROM whatsapp_templates WHERE tenant_id=$1 AND key=$2", r["tenant_id"], r["template_key"])
         try:
-            if tpl:
+            # Website-chat customers have no WhatsApp thread, and until the Cloud API is
+            # approved nobody does. Email carries the same message when there is an address.
+            on_whatsapp = client.enabled and not str(r["wa_id"] or "").startswith("web:")
+            if on_whatsapp and tpl:
                 ordered = [str(r["params"].get(p, "")) for p in tpl["params_schema"]]
                 res = await client.send_template(r["wa_id"], tpl["meta_name"], tpl["language"], ordered)
-            else:  # fall back to plain text inside a 24h window (dev)
+            elif on_whatsapp:  # plain text inside a 24h window (dev)
                 res = await client.send_text(r["wa_id"], _render_plain(r["template_key"], r["params"]))
+            elif r["email"]:
+                from app.notify.channels import send_email
+
+                ok = await send_email(r["email"], _subject(r["template_key"], r["params"]), _render_plain(r["template_key"], r["params"]))
+                if not ok:
+                    raise RuntimeError("email not delivered (RESEND_API_KEY unset or send failed)")
+                res = {"id": None}
+            else:
+                await db.execute("UPDATE notifications SET status='skipped', error='no channel: not on WhatsApp and no email' WHERE id=$1", r["id"])
+                continue
             await db.execute("UPDATE notifications SET status='sent', sent_at=now(), external_id=$2 WHERE id=$1", r["id"], (res or {}).get("id"))
             sent += 1
         except Exception as e:  # noqa: BLE001
             await db.execute("UPDATE notifications SET status='failed', error=$2 WHERE id=$1", r["id"], str(e)[:500])
     return sent
+
+
+def _subject(key: str, p: dict) -> str:
+    return {
+        "quote_ready": f"Your quote {p.get('quote_number')} is ready",
+        "menu_change_update": f"Menu updated on {p.get('quote_number')}",
+        "price_lock_confirmation": f"Price locked on {p.get('quote_number')}",
+        "payment_reminder": f"Advance pending for {p.get('quote_number')}",
+        "post_event_thankyou": "Thank you from Hyderabad Elite Catering",
+        "reengagement_festival": f"{p.get('festival_name')} menus — first access for you",
+        "festival_offer_alert": f"New offer on {p.get('quote_number')}",
+    }.get(key, "Hyderabad Elite Catering")
 
 
 def _render_plain(key: str, p: dict) -> str:

@@ -77,6 +77,13 @@ class Settings(BaseSettings):
     # business number cannot be opened in the WhatsApp app, so escalations are pushed here.
     owner_wa_number: str | None = None
 
+    # Channels that need no telecom approval and work from any country.
+    telegram_bot_token: str | None = None   # from @BotFather
+    telegram_chat_id: str | None = None     # the owner's chat id with that bot
+    resend_api_key: str | None = None
+    email_from: str = "Anvi at Hyderabad Elite Catering <onboarding@resend.dev>"
+    owner_email: str | None = None
+
     # Payments
     razorpay_key_id: str | None = None
     razorpay_key_secret: str | None = None

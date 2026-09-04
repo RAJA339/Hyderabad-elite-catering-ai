@@ -146,6 +146,37 @@ customer from their personal number, and a link to the lead in the admin, from w
 reply goes out as the business number. Website-chat customers have no WhatsApp thread, so
 they are offered a "continue on WhatsApp" link into the business number instead.
 
+### Not in India? Start here instead
+
+The Cloud API needs a GST document and an Indian SIM to take one OTP. Neither is doable from
+abroad, so these two channels carry the business until someone in Hyderabad can do that.
+They need no approval from anyone and take about ten minutes.
+
+**Owner alerts on Telegram**
+
+1. In Telegram, message **@BotFather** → `/newbot` → pick a name. Copy the token.
+2. Open your new bot and send it any message (this is what lets it message you back).
+3. Visit `https://api.telegram.org/bot<TOKEN>/getUpdates` in a browser and copy the number
+   under `"chat":{"id":…}`.
+4. Railway → Variables: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`. Redeploy.
+
+From then on the owner's phone gets a message for every hand-off, locked price, advance
+requested and advance paid — each with the customer's details and the admin link.
+
+**Customers by email**
+
+1. resend.com → API key. The `onboarding@resend.dev` sender works immediately with no
+   domain; add your own domain later for deliverability.
+2. Railway → Variables: `RESEND_API_KEY`, and `OWNER_EMAIL` if you also want alerts by mail.
+
+Anvi asks for an email when it is useful and stores it; quotes, price-lock confirmations
+and payment reminders then go by email to customers who are not on WhatsApp — which, until
+the API is approved, is all of them. The website chat and the portal link remain the live
+channel for the conversation itself.
+
+**Check it worked:** `/health` now lists `owner_channels`. Then type "I want to talk to a
+person" into the site chat — the owner's Telegram should buzz within a second.
+
 ### Getting the Cloud API (India)
 
 Allow three to ten working days, most of it waiting on Meta.

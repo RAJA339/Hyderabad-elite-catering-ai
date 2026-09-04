@@ -8,6 +8,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Request
 
+from app.agent.handoff import notify_owner_order
 from app.core import db
 from app.core.config import get_settings
 from app.leads import lifecycle
@@ -34,4 +35,6 @@ async def razorpay(request: Request):
     quote = await db.fetchrow("SELECT * FROM quotes WHERE id=$1", quote_id)
     lead = await db.fetchrow("SELECT * FROM leads WHERE id=$1", quote["lead_id"])
     await lifecycle.on_event_completed(quote["tenant_id"], dict(lead), dict(quote))
+    customer = await db.fetchrow("SELECT * FROM customers WHERE id=$1", lead["customer_id"])
+    await notify_owner_order("advance_paid", lead=dict(lead), customer=dict(customer or {}), quote=dict(quote), amount=str(Decimal(link["amount_paid"]) / 100))
     return {"ok": True}
