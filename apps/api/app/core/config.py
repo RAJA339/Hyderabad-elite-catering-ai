@@ -117,8 +117,13 @@ class Settings(BaseSettings):
         out = []
         for raw in self.cors_origins.split(","):
             o = raw.strip().strip("\"'").strip().rstrip("/")
-            if o:
-                out.append(o)
+            if not o:
+                continue
+            # A bare "site.vercel.app" reads as correct on a dashboard but matches nothing:
+            # the browser sends a full scheme://host. Assume https, except for local dev.
+            if "://" not in o:
+                o = ("http://" if o.split(":")[0] in {"localhost", "127.0.0.1"} else "https://") + o
+            out.append(o)
         return out
 
 
