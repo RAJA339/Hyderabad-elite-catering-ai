@@ -111,9 +111,15 @@ class Settings(BaseSettings):
 
     @property
     def cors_origin_list(self) -> list[str]:
-        # Browsers send an Origin with no trailing slash, and CORS matching is exact, so
-        # "https://site.vercel.app/" would silently never match.
-        return [o.strip().rstrip("/") for o in self.cors_origins.split(",") if o.strip()]
+        # CORS matching is exact and the browser sends a bare scheme://host, so anything the
+        # value picks up on its way through a dashboard makes it silently never match:
+        # surrounding quotes from a copy-paste, stray whitespace, a trailing slash.
+        out = []
+        for raw in self.cors_origins.split(","):
+            o = raw.strip().strip("\"'").strip().rstrip("/")
+            if o:
+                out.append(o)
+        return out
 
 
 @lru_cache
