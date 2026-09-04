@@ -29,7 +29,7 @@ def test_price_point_rounds_up_to_5():
 
 def test_package_hits_target_margin_and_guest_cap():
     pkg = price_package(tier="classic", items=[CATALOG["paneer_butter_masala"], CATALOG["pulihora"]], prices=PRICES, guest_count=120, diet="veg", policy=POLICY)
-    assert pkg.margin_pct >= POLICY.target_margin_pct  # rounding up only helps margin
+    assert pkg.margin_pct >= pkg.target_margin_pct  # rounding up only helps margin; target is the effective one
     assert pkg.margin_ok
     assert pkg.grand_total == pkg.subtotal + pkg.surcharge_total - pkg.discount_total + pkg.tax_total
     with pytest.raises(GuestLimitExceeded):
@@ -48,7 +48,8 @@ def test_spike_applies_transparent_capped_surcharge():
     assert pkg.surcharge_total > 0
     assert any("surcharge" in n for n in pkg.notes)
     line = pkg.lines[0]
-    base = price_point(cost_item(CATALOG["chicken_biryani"], spiky, 100).total_cost_per_guest / D("0.6"))
+    eff = POLICY.effective("classic", 100)
+    base = price_point(cost_item(CATALOG["chicken_biryani"], spiky, 100).total_cost_per_guest / (D("1") - eff.target))
     assert line.unit_price - base <= base * D("0.06") + D("0.01")  # capped at 6%
 
 
@@ -118,3 +119,55 @@ def test_diet_filter_does_not_duplicate_existing_items():
     items = [CATALOG["pulihora"], CATALOG["pulihora"], CATALOG["gulab_jamun"]]
     out, _ = apply_diet(items, "veg", CATALOG)
     assert [i.slug for i in out] == ["pulihora", "gulab_jamun"]
+
+
+
+# ── margin shaping: low headline price, bigger events cheaper per plate, profit intact ──
+from app.pricing.engine import MIN_FLOOR_PCT, parse_tier_adj, parse_volume_ladder  # noqa: E402
+
+VEG = [CATALOG["paneer_butter_masala"], CATALOG["pulihora"], CATALOG["gulab_jamun"]]
+
+
+def test_classic_is_the_cheapest_tier_and_royal_carries_the_margin():
+    c = price_package(tier="classic", items=VEG, prices=PRICES, guest_count=120, diet="veg", policy=POLICY)
+    s = price_package(tier="signature", items=VEG, prices=PRICES, guest_count=120, diet="veg", policy=POLICY)
+    r = price_package(tier="royal", items=VEG, prices=PRICES, guest_count=120, diet="veg", policy=POLICY)
+    assert c.per_plate < s.per_plate < r.per_plate
+    assert c.target_margin_pct < s.target_margin_pct < r.target_margin_pct
+    assert all(p.margin_ok for p in (c, s, r))
+
+
+def test_bigger_event_costs_less_per_plate_and_makes_more_money():
+    small = price_package(tier="signature", items=VEG, prices=PRICES, guest_count=50, diet="veg", policy=POLICY)   # ≤75: no volume band
+    mid = price_package(tier="signature", items=VEG, prices=PRICES, guest_count=100, diet="veg", policy=POLICY)   # ≤150: −2
+    big = price_package(tier="signature", items=VEG, prices=PRICES, guest_count=400, diet="veg", policy=POLICY)   # >300: −8
+    assert big.per_plate < mid.per_plate < small.per_plate
+    assert "Volume rate applied for 400 guests" in big.notes and not any("Volume" in n for n in small.notes)
+    profit = lambda p: p.subtotal + p.surcharge_total - p.discount_total - p.cost_total  # noqa: E731
+    assert profit(big) > profit(small) * 6  # eight times the plates at a lower rate is still far more rupees
+
+
+def test_floor_follows_target_but_never_drops_below_the_hard_minimum():
+    assert POLICY.effective("royal", 50).min_margin_pct == D("32")          # 44% target, tenant floor holds
+    assert POLICY.effective("classic", 500).min_margin_pct == MIN_FLOOR_PCT  # 28% target → floor pinned at 24
+    assert POLICY.effective("classic", 500).target_margin_pct == D("30")     # a target under 30 is refused
+    assert "volume" in POLICY.effective("signature", 300).reason
+
+
+def test_offers_still_work_on_big_events_because_the_floor_moved():
+    # ~6.5% off a 400-plate quote: lands around 29% margin, under the tenant's 32% floor but
+    # above the 26% the volume band moved it to. A flat floor would have refused it.
+    offer = AppliedDiscount("fest", "Dasara early bird", D("3000"), "festival")
+    big = price_package(tier="signature", items=VEG, prices=PRICES, guest_count=400, diet="veg", policy=POLICY, discounts=[offer])
+    assert big.discount_total == D("3000") and big.margin_ok and big.margin_pct < D("32")
+    greedy = AppliedDiscount("greedy", "Too deep", D("6000"), "festival")
+    assert price_package(tier="signature", items=VEG, prices=PRICES, guest_count=400, diet="veg", policy=POLICY, discounts=[greedy]).discount_total == 0
+
+
+def test_shaping_is_tunable_from_env_strings():
+    assert parse_tier_adj("classic:-6, royal:+5")["classic"] == D("-6")
+    assert parse_tier_adj("")["signature"] == D("0")
+    ladder = parse_volume_ladder("100:0,250:-3,500:-7")
+    assert ladder[0] == (100, D("0")) and ladder[-1] == (10_000, D("-7"))
+    flat = MarginPolicy(D("40"), D("32"), D("5"), 500, tier_adj={"classic": D("0"), "signature": D("0"), "royal": D("0")}, volume_ladder=((10_000, D("0")),))
+    assert flat.effective("classic", 500).target_margin_pct == D("40")

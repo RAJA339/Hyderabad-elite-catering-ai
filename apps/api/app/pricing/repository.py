@@ -103,13 +103,14 @@ async def load_templates(tenant_id: UUID) -> list[PackageTemplate]:
 
 async def load_policy(tenant_id: UUID):
     from app.core.config import get_settings
-    from app.pricing.engine import MarginPolicy
+    from app.pricing.engine import MarginPolicy, parse_tier_adj, parse_volume_ladder
 
     row = await db.fetchrow("SELECT target_margin_pct, min_margin_pct, max_guests FROM tenants WHERE id = $1", tenant_id)
     s = get_settings()
+    shaping = {"tier_adj": parse_tier_adj(s.margin_tier_adj), "volume_ladder": parse_volume_ladder(s.margin_volume_ladder)}
     if not row:
-        return MarginPolicy(D(str(s.target_margin_pct)), D(str(s.min_margin_pct)), D(str(s.gst_pct)), s.max_guests)
-    return MarginPolicy(D(row["target_margin_pct"]), D(row["min_margin_pct"]), D(str(s.gst_pct)), min(row["max_guests"], 500))
+        return MarginPolicy(D(str(s.target_margin_pct)), D(str(s.min_margin_pct)), D(str(s.gst_pct)), s.max_guests, **shaping)
+    return MarginPolicy(D(row["target_margin_pct"]), D(row["min_margin_pct"]), D(str(s.gst_pct)), min(row["max_guests"], 500), **shaping)
 
 
 async def kitchen_load(tenant_id: UUID, event_date) -> int:

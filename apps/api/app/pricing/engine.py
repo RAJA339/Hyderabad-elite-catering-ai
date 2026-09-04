@@ -3,11 +3,24 @@
 price_per_guest = cost_per_guest / (1 - target_margin)  → rounded to a premium price point
 Discounts are applied *after* pricing and are rejected if margin would fall below the floor.
 Cost spikes trigger one of three strategies: substitute, surcharge, or restrict discounts.
+
+The margin is not one number. The Indian catering market is won on the headline per-plate
+price of the entry package and on the per-plate rate for big events, and it is kept
+profitable on the middle and top tiers and on the absolute rupees a large booking brings.
+So the tenant's target margin is adjusted per quote, in two independent steps:
+
+  tier    — Classic is priced a few points under target (the price people compare us on),
+            Signature at target (where most bookings land), Royal a few points over.
+  volume  — the target steps down as guest count rises. Fixed costs are already spread
+            thinner, and 400 plates at 32% is far more profit than 100 plates at 40%.
+
+The floor moves with the target so festival offers still work on big events, but never
+drops below MIN_FLOOR_PCT: we are never the cheapest at a loss.
 """
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 from decimal import ROUND_CEILING, ROUND_HALF_UP, Decimal
 
 from app.pricing.costing import cost_item, q
@@ -18,12 +31,55 @@ SPIKE_THRESHOLD_PCT = Decimal("12")    # 7-day cost rise that counts as a spike
 MAX_SURCHARGE_PCT = Decimal("6")       # transparent surcharge cap
 
 
+# Points added to the tenant's target margin per tier, and per guest-count band (upper
+# bound inclusive). Both are overridable from MARGIN_TIER_ADJ / MARGIN_VOLUME_LADDER so the
+# owner can tune them against real competitor quotes without a deploy of code.
+DEFAULT_TIER_ADJ: Mapping[str, Decimal] = {"classic": Decimal("-4"), "signature": Decimal("0"), "royal": Decimal("4")}
+DEFAULT_VOLUME_LADDER: tuple[tuple[int, Decimal], ...] = ((75, Decimal("0")), (150, Decimal("-2")), (300, Decimal("-5")), (10_000, Decimal("-8")))
+MIN_FLOOR_PCT = Decimal("24")          # no quote, offer or volume band ever goes below this
+FLOOR_GAP_PCT = Decimal("6")           # the floor sits this far under the effective target
+
+
+def parse_tier_adj(spec: str) -> dict[str, Decimal]:
+    """'classic:-4,signature:0,royal:4' → {...}. Blank or malformed falls back to defaults."""
+    out: dict[str, Decimal] = {}
+    for part in (spec or "").split(","):
+        if ":" in part:
+            k, v = part.split(":", 1)
+            try:
+                out[k.strip().lower()] = Decimal(v.strip())
+            except Exception:  # noqa: BLE001
+                continue
+    return out or dict(DEFAULT_TIER_ADJ)
+
+
+def parse_volume_ladder(spec: str) -> tuple[tuple[int, Decimal], ...]:
+    """'75:0,150:-2,300:-5,500:-8' → ((75,0),(150,-2),...). Bands are 'up to N guests'. The
+    last band is extended to cover any count, so the top adjustment also applies above it."""
+    bands: list[tuple[int, Decimal]] = []
+    for part in (spec or "").split(","):
+        if ":" in part:
+            k, v = part.split(":", 1)
+            try:
+                bands.append((int(k.strip()), Decimal(v.strip())))
+            except Exception:  # noqa: BLE001
+                continue
+    if not bands:
+        return DEFAULT_VOLUME_LADDER
+    bands.sort()
+    upto, adj = bands[-1]
+    return tuple(bands[:-1]) + ((10_000, adj),)
+
+
 @dataclass(frozen=True)
 class MarginPolicy:
     target_margin_pct: Decimal = Decimal("40")
     min_margin_pct: Decimal = Decimal("32")
     tax_pct: Decimal = Decimal("5")
     max_guests: int = 500
+    tier_adj: Mapping[str, Decimal] = field(default_factory=lambda: dict(DEFAULT_TIER_ADJ))
+    volume_ladder: tuple[tuple[int, Decimal], ...] = DEFAULT_VOLUME_LADDER
+    reason: str = ""  # how an effective policy was derived; empty on the tenant's base policy
 
     @property
     def target(self) -> Decimal:
@@ -32,6 +88,25 @@ class MarginPolicy:
     @property
     def floor(self) -> Decimal:
         return self.min_margin_pct / Decimal("100")
+
+    def effective(self, tier: str, guest_count: int) -> MarginPolicy:
+        """The policy this particular quote is priced on."""
+        t_adj = Decimal(self.tier_adj.get(tier, Decimal("0")))
+        v_adj = Decimal("0")
+        band = None
+        for upto, adj in self.volume_ladder:
+            if guest_count <= upto:
+                v_adj, band = Decimal(adj), upto
+                break
+        target = self.target_margin_pct + t_adj + v_adj
+        target = max(target, MIN_FLOOR_PCT + FLOOR_GAP_PCT)  # a target under 30 is not a pricing strategy
+        floor = max(MIN_FLOOR_PCT, min(self.min_margin_pct, target - FLOOR_GAP_PCT))
+        why = [f"base {self.target_margin_pct}%"]
+        if t_adj:
+            why.append(f"{tier} {t_adj:+}")
+        if v_adj:
+            why.append(f"volume ≤{band} guests {v_adj:+}")
+        return replace(self, target_margin_pct=target, min_margin_pct=floor, reason=" · ".join(why) + f" → {target}% (floor {floor}%)")
 
 
 class GuestLimitExceeded(ValueError):
@@ -68,10 +143,14 @@ def price_package(
         raise ValueError("guest_count must be positive")
     if guest_count > policy.max_guests:
         raise GuestLimitExceeded(f"guest_count {guest_count} exceeds hard limit {policy.max_guests}")
+    base_target = policy.target_margin_pct
+    policy = policy.effective(tier, guest_count)
 
     lines: list[PricedLine] = []
     costs: list[ItemCost] = []
     notes: list[str] = []
+    if policy.target_margin_pct < base_target + Decimal(policy.tier_adj.get(tier, 0)):
+        notes.append(f"Volume rate applied for {guest_count} guests")
     food_total = Decimal("0")
     cost_total = Decimal("0")
     subtotal = Decimal("0")
@@ -128,7 +207,7 @@ def price_package(
     margin = _margin(net, cost_total)
 
     trace = {
-        "policy": {"target_margin_pct": str(policy.target_margin_pct), "min_margin_pct": str(policy.min_margin_pct)},
+        "policy": {"target_margin_pct": str(policy.target_margin_pct), "min_margin_pct": str(policy.min_margin_pct), "base_target_pct": str(base_target), "derived": policy.reason},
         "items": [
             {"slug": c.slug, "food": str(c.food_cost_per_guest), "labour": str(c.labour_per_guest),
              "overhead": str(c.overhead_per_guest), "setup": str(c.setup_per_guest), "total_cost": str(c.total_cost_per_guest),

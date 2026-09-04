@@ -70,7 +70,7 @@ TOOLS: list[dict] = [
     },
     {
         "name": "record_advance",
-        "description": "Create the advance payment request (30% by default) and return the payment link.",
+        "description": "Create the advance payment request (ADVANCE_PCT of the total; 50% by default, the Indian norm) and return how to pay.",
         "parameters": {"type": "object", "properties": {"pct": {"type": "number"}}},
     },
     {

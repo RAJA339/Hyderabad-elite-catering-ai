@@ -31,7 +31,7 @@ kobbari pachadi. New price ₹596/plate, total ₹89,400. Want me to check festi
 **C**: yes
 `⚙ festival_offers(quote_id) → {best: "Dasara Early Bird", pct: 6, saves: ₹5,364, margin_ok: true}`
 **A**: Good news: Dasara Early Bird gives 6% off if you confirm this week. That's ₹5,364 saved,
-total ₹84,036. I can lock this price today with a 30% advance (₹25,211). Shall I send the link?
+total ₹84,036. I can lock this price today with a 50% advance (₹42,018). Shall I send the link?
 **C**: send
 `⚙ lock_price(quote_id, valid_until=2026-10-14)` `⚙ record_advance(request_link=true)`
 **A**: Price locked till your event. Payment link sent above. You'll get a confirmation and a
