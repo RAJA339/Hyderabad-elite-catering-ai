@@ -1,4 +1,6 @@
-export const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+// A trailing slash here becomes `https://host//api/chat`, which the API 404s. People paste
+// URLs with and without it, so normalise rather than rely on getting it right.
+export const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/+$/, "");
 
 const TOKEN_KEY = "hecai.token";
 
