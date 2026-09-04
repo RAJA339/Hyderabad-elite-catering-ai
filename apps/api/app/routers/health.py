@@ -1,3 +1,5 @@
+import os
+
 from fastapi import APIRouter
 
 from app.core import db
@@ -15,7 +17,9 @@ async def health():
     st = get_settings()
     out = {"status": "ok", "db": False, "redis": False,
            "cors_origins": st.cors_origin_list, "llm_key_present": bool(st.anthropic_api_key or st.openai_api_key),
-           "owner_channels": owner_channels()}
+           "owner_channels": owner_channels(),
+           # Railway sets this; it is the fastest way to tell whether the API is on the same commit as the site.
+           "build": (os.getenv("RAILWAY_GIT_COMMIT_SHA") or os.getenv("GIT_COMMIT") or "")[:7] or None}
     try:
         out["db"] = (await db.fetchval("SELECT 1")) == 1
     except Exception:  # noqa: BLE001
