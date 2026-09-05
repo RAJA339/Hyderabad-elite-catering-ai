@@ -90,9 +90,10 @@ class MarginPolicy:
     def floor(self) -> Decimal:
         return self.min_margin_pct / Decimal("100")
 
-    def effective(self, tier: str, guest_count: int) -> MarginPolicy:
-        """The policy this particular quote is priced on."""
-        t_adj = Decimal(self.tier_adj.get(tier, Decimal("0")))
+    def effective(self, tier: str, guest_count: int, package_adj: Decimal = Decimal("0")) -> MarginPolicy:
+        """The policy this particular quote is priced on. `package_adj` is the points a specific
+        package template adds to the target, so one card can sit leaner than its tier."""
+        t_adj = Decimal(self.tier_adj.get(tier, Decimal("0"))) + Decimal(package_adj)
         v_adj = Decimal("0")
         band = None
         for upto, adj in self.volume_ladder:
@@ -104,7 +105,7 @@ class MarginPolicy:
         floor = max(MIN_FLOOR_PCT, min(self.min_margin_pct, target - FLOOR_GAP_PCT))
         why = [f"base {self.target_margin_pct}%"]
         if t_adj:
-            why.append(f"{tier} {t_adj:+}")
+            why.append(f"{tier} {t_adj:+}" + (f" (package {Decimal(package_adj):+})" if package_adj else ""))
         if v_adj:
             why.append(f"volume ≤{band} guests {v_adj:+}")
         return replace(self, target_margin_pct=target, min_margin_pct=floor, reason=" · ".join(why) + f" → {target}% (floor {floor}%)")
@@ -120,7 +121,10 @@ def price_point(x: Decimal) -> Decimal:
 
 
 def unit_price_for(cost: Decimal, policy: MarginPolicy) -> Decimal:
-    return price_point(cost / (Decimal("1") - policy.target))
+    """A line's share of the plate at the target margin, to the paisa. The plate as a whole is
+    rounded to its price point once, in price_package: rounding every line of a twenty-item
+    thali up to the next ₹5 would add ₹30–40 a plate that no customer asked for."""
+    return q(cost / (Decimal("1") - policy.target))
 
 
 def _margin(subtotal: Decimal, cost: Decimal) -> Decimal:
@@ -139,18 +143,20 @@ def price_package(
     policy: MarginPolicy,
     discounts: Iterable[AppliedDiscount] = (),
     allow_surcharge: bool = True,
+    package_adj: Decimal = Decimal("0"),
+    package_key: str | None = None,
 ) -> PackagePrice:
     if guest_count <= 0:
         raise ValueError("guest_count must be positive")
     if guest_count > policy.max_guests:
         raise GuestLimitExceeded(f"guest_count {guest_count} exceeds hard limit {policy.max_guests}")
     base_target = policy.target_margin_pct
-    policy = policy.effective(tier, guest_count)
+    policy = policy.effective(tier, guest_count, package_adj)
 
     lines: list[PricedLine] = []
     costs: list[ItemCost] = []
     notes: list[str] = []
-    if policy.target_margin_pct < base_target + Decimal(policy.tier_adj.get(tier, 0)):
+    if policy.target_margin_pct < base_target + Decimal(policy.tier_adj.get(tier, 0)) + Decimal(package_adj):
         notes.append(f"Volume rate applied for {guest_count} guests")
     food_total = Decimal("0")
     cost_total = Decimal("0")
@@ -214,7 +220,8 @@ def price_package(
     margin = _margin(net, cost_total)
 
     trace = {
-        "policy": {"target_margin_pct": str(policy.target_margin_pct), "min_margin_pct": str(policy.min_margin_pct), "base_target_pct": str(base_target), "derived": policy.reason},
+        "policy": {"target_margin_pct": str(policy.target_margin_pct), "min_margin_pct": str(policy.min_margin_pct), "base_target_pct": str(base_target),
+                   "derived": policy.reason, "package_adj": str(package_adj), "package": package_key},
         "positioning": {"raw_per_plate": str(raw_pp.quantize(Decimal("0.01"))), "price_point_per_plate": str(charm_pp), "uplift_per_plate": str(positioning_pp)},
         "items": [
             {"slug": c.slug, "food": str(c.food_cost_per_guest), "labour": str(c.labour_per_guest),

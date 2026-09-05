@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { MarketWidget } from "@/components/market-widget";
 import { UpiPay } from "@/components/upi-pay";
 
-const CATS = ["welcome_drinks", "starters", "main_veg", "main_nonveg", "rice_breads", "live_counters", "desserts"];
+const CATS = ["welcome_drinks", "starters", "main_veg", "main_nonveg", "rice_breads", "sides", "live_counters", "desserts", "service"];
 
 export function QuoteView({ bundle, token, readOnly = false, onUpdate }: { bundle: QuoteBundle; token?: string; readOnly?: boolean; onUpdate?: (b: QuoteBundle) => void }) {
   const q = bundle.quote;
@@ -65,8 +65,8 @@ export function QuoteView({ bundle, token, readOnly = false, onUpdate }: { bundl
             {locked ? <p className="flex items-center gap-2 text-xs text-muted"><Lock size={12} /> Price is locked. Message us on WhatsApp for changes.</p> : (
               <form onSubmit={(e) => { e.preventDefault(); change(req); }} className="space-y-2">
                 <label className="label">Request a change (re-priced instantly)</label>
-                <div className="flex gap-2"><input value={req} onChange={(e) => setReq(e.target.value)} placeholder="e.g. add 40 guests · remove mutton · make it Jain · add live pasta counter" className="hairline h-10 flex-1 rounded-xl bg-bg px-3 text-sm outline-none" /><Button type="submit" disabled={busy}>{busy ? "Pricing…" : "Update"}</Button></div>
-                <div className="flex flex-wrap gap-1.5">{["Add 20 more guests", "Add live chaat counter", "Make it Jain", "Remove mutton"].map((s) => <button type="button" key={s} onClick={() => change(s)} className="hairline rounded-full px-2.5 py-1 text-xs hover:bg-line/50">{s}</button>)}</div>
+                <div className="flex gap-2"><input value={req} onChange={(e) => setReq(e.target.value)} placeholder="e.g. add 40 guests · swap purnalu for gulab jamun · make it Jain · add water bottles" className="hairline h-10 flex-1 rounded-xl bg-bg px-3 text-sm outline-none" /><Button type="submit" disabled={busy}>{busy ? "Pricing…" : "Update"}</Button></div>
+                <div className="flex flex-wrap gap-1.5">{["Add 20 more guests", "Add packaged water", "Make it Jain", "Swap the sweet for gulab jamun"].map((s) => <button type="button" key={s} onClick={() => change(s)} className="hairline rounded-full px-2.5 py-1 text-xs hover:bg-line/50">{s}</button>)}</div>
                 {reply && <p className="whitespace-pre-wrap rounded-xl bg-line/40 p-3 text-sm">{reply}</p>}
               </form>
             )}

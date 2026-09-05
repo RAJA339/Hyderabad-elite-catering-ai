@@ -24,11 +24,11 @@ type Dish = {
 };
 
 const dishes: Dish[] = [
-  { slug: "dum-biryani", name: "Kacchi Dum Biryani", tagline: "The reason Hyderabad is Hyderabad.", method: "Raw marinated mutton under saffron basmati, sealed with dough, three hours on dum. Bowenpally mutton, priced this morning.", from: 185, wash: ["#F3D9A8", "#3A2410"], Art: BiryaniArt, feature: true },
-  { slug: "haleem", name: "Haleem", tagline: "Twelve hours. One pot.", method: "Wheat, lentils and mutton pounded to silk, finished with ghee, birista and lime. Ramzan-season pricing applied automatically.", from: 120, wash: ["#EFC9A0", "#33200E"], Art: HaleemArt },
-  { slug: "bagara-baingan", name: "Bagara Baingan", tagline: "The gravy that finishes the biryani.", method: "Baby aubergines in a peanut, sesame and tamarind masala. Sits beside every non-veg and veg menu.", from: 55, wash: ["#EFC2A6", "#33170F"], Art: BainganArt },
-  { slug: "double-ka-meetha", name: "Double ka Meetha", tagline: "Bread, ghee, saffron, patience.", method: "Fried bread soaked in reduced saffron milk, dressed with pistachio and silver leaf. The dessert that ends every wedding.", from: 45, wash: ["#F6E3BC", "#3A2A12"], Art: MeethaArt },
-  { slug: "irani-chai", name: "Irani Chai & Osmania", tagline: "How every meeting in this city ends.", method: "Thick, sweet, dum-brewed tea with a salty-sweet Osmania biscuit. Served at the end of every plated service.", from: 25, wash: ["#EAD6C0", "#2E2117"], Art: ChaiArt },
+  { slug: "mutton-dum-biryani", name: "Mutton Dum Biryani", tagline: "The reason Hyderabad is Hyderabad.", method: "Marinated mutton under basmati, sealed and slow-cooked on dum, halal. The heart of our Mutton Dum cards — Bowenpally mutton, priced this morning.", from: 150, wash: ["#F3D9A8", "#3A2410"], Art: BiryaniArt, feature: true },
+  { slug: "mutton-curry", name: "Mutton Curry", tagline: "Slow, deep, home-style.", method: "Bone-in mutton in an onion-tomato masala cooked down for hours. Sits beside the chicken dum biryani on every non-veg card.", from: 95, wash: ["#EFC9A0", "#33200E"], Art: HaleemArt },
+  { slug: "gutti-vankaya", name: "Gutti Vankaya", tagline: "The curry that finishes the biryani.", method: "Baby brinjals stuffed with a peanut, sesame and coconut masala. On the Classic veg card and every non-veg card.", from: 22, wash: ["#EFC2A6", "#33170F"], Art: BainganArt },
+  { slug: "double-ka-meetha", name: "Double ka Meetha", tagline: "Bread, ghee, saffron, patience.", method: "Fried bread soaked in reduced saffron milk, dressed with nuts. One of the sweets you can choose on most of our cards.", from: 18, wash: ["#F6E3BC", "#3A2A12"], Art: MeethaArt },
+  { slug: "majjiga-charu", name: "Majjiga Charu", tagline: "How a Telugu meal ends.", method: "Spiced buttermilk stew with chana dal and coconut, served warm over rice with karapodi and ghee. On the Grand veg card.", from: 12, wash: ["#EAD6C0", "#2E2117"], Art: ChaiArt },
 ];
 
 export function SignatureTable() {
@@ -48,7 +48,7 @@ export function SignatureTable() {
         {dishes.map((d, i) => <DishTile key={d.slug} d={d} index={i} />)}
       </ul>
 
-      <p className="mt-4 text-[11px] text-muted">Per-plate figures are the dish’s share of a Signature menu for 120 guests, illustrative. Anvi quotes the live number.</p>
+      <p className="mt-4 text-[11px] text-muted">Per-plate figures are the dish’s share of its card for 100 guests, rounded. The menu builder and Anvi quote the live number.</p>
     </section>
   );
 }
@@ -73,7 +73,7 @@ function DishTile({ d, index }: { d: Dish; index: number }) {
       <p className="display-italic mt-1 text-lg text-muted">{d.tagline}</p>
       <p className="mt-3 max-w-md text-[14px] leading-relaxed text-muted">{d.method}</p>
       {d.feature && (
-        <Link href="#chat" className="mt-6 inline-flex w-fit items-center gap-1.5 text-sm font-medium hover:text-accent">Ask Anvi to price it <ArrowUpRight size={14} /></Link>
+        <Link href="/menu?package=ssr_nonveg_mutton" className="mt-6 inline-flex w-fit items-center gap-1.5 text-sm font-medium hover:text-accent">Build the Mutton Dum card <ArrowUpRight size={14} /></Link>
       )}
     </div>
   );

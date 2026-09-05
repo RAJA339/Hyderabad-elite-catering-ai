@@ -318,3 +318,14 @@ known prices, so quotes stay consistent but stop tracking the market.
 Neon, Upstash and Vercel have usable free tiers. Railway charges after trial credit,
 typically a few dollars a month at this size. The Anthropic API is pay-as-you-go; a
 qualification-to-quote conversation is a fraction of a rupee at current rates.
+
+
+## The menu follows the repo
+
+The owner's cards live in `apps/api/app/menu/sri_sai_raja.py`. On every boot the API compares
+`MENU_VERSION` with what the tenant recorded and applies the difference (dishes, recipes,
+packages, upsell rules, the margin policy the cards were calibrated on), then re-costs and
+re-indexes. So a menu change is a commit and a deploy; nothing is edited in Neon by hand.
+`python -m app.cli apply-menu` forces it, `python -m app.cli price-report` prints every card
+costed on the live rates. `MENU_SOURCE=` (empty) turns the startup apply off. Details and the
+pricing analysis: docs/10-menu.md.

@@ -4,6 +4,7 @@ import { SiteHeader } from "@/components/site-header";
 import { ChatWidget } from "@/components/chat-widget";
 import { MarketTicker } from "@/components/market-ticker";
 import { SignatureTable } from "@/components/signature-table";
+import { MenusSection } from "@/components/menus-section";
 import { EnquiryForm } from "@/components/enquiry-form";
 import { Button } from "@/components/ui/button";
 
@@ -13,7 +14,7 @@ const WA = (process.env.NEXT_PUBLIC_WA_NUMBER || "").replace(/\D/g, "");
 
 const steps = [
   ["01", "Tell Anvi the basics", "Occasion, date, guest count, veg or non-veg. Three to five messages, no forms."],
-  ["02", "Get three priced menus", "Classic, Signature and Royal — each costed on today’s Bowenpally wholesale rates with the market benchmark beside it."],
+  ["02", "Get priced menus", "Our nine cards, or your own build — each costed on today’s Bowenpally wholesale rates with the market benchmark beside it."],
   ["03", "Tweak, lock, done", "Add guests, remove mutton, make it Jain. The price updates instantly. Lock it and it can’t rise before your event."],
 ];
 
@@ -41,7 +42,7 @@ export default function Home() {
                 ) : (
                   <a href="#chat"><Button size="lg" className="group gap-2 pr-4">Chat with Anvi <ArrowRight size={16} className="transition-transform group-hover:translate-x-0.5" /></Button></a>
                 )}
-                <Link href="/portal"><Button size="lg" variant="secondary">Open my quote</Button></Link>
+                <Link href="/menu"><Button size="lg" variant="secondary">See the menus</Button></Link>
               </div>
               <dl className="reveal reveal-5 mt-10 grid max-w-md grid-cols-3 gap-6 border-t border-line/80 pt-6">
                 <div><dt className="label">Response</dt><dd className="mt-1 text-sm font-medium">Under a minute</dd></div>
@@ -57,6 +58,8 @@ export default function Home() {
         </section>
 
         <MarketTicker />
+
+        <MenusSection />
 
         <SignatureTable />
 

@@ -250,6 +250,11 @@ CREATE TABLE package_templates (
   guest_max     integer NOT NULL DEFAULT 500,
   description   text,
   is_active     boolean NOT NULL DEFAULT true,
+  tagline       text,
+  list_price    numeric(10,2),            -- the owner's printed per-plate, for reference
+  includes      text[] NOT NULL DEFAULT '{}',   -- rides along at no extra line: disposables, tissues
+  margin_adj    numeric(5,2) NOT NULL DEFAULT 0, -- points on top of the tier's margin adjustment
+  sort_order    integer NOT NULL DEFAULT 0,
   UNIQUE (tenant_id, key)
 );
 
@@ -257,6 +262,9 @@ CREATE TABLE package_template_items (
   package_template_id uuid NOT NULL REFERENCES package_templates(id) ON DELETE CASCADE,
   menu_item_id  uuid NOT NULL REFERENCES menu_items(id),
   is_optional   boolean NOT NULL DEFAULT false,
+  slot          text,                     -- a "choose one" line on the card; NULL = fixed item
+  is_default    boolean NOT NULL DEFAULT true,   -- false = an alternative inside its slot
+  position      integer NOT NULL DEFAULT 0,
   PRIMARY KEY (package_template_id, menu_item_id)
 );
 

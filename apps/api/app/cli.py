@@ -4,6 +4,8 @@
   eval            run the RAG evaluation set
   ingest-csv PATH ingest a supplier/market CSV
   sync-festivals  upsert the static festival calendar
+  apply-menu      load the owner's menu cards (app/menu/sri_sai_raja.py) into the database
+  price-report    every package costed on today's rates, beside the printed card and the Justdial band
   check-llm       test the API key, workspace and model without starting the server
   doctor          show which .env files exist and what the app actually read from them
   set-env K=V     safely write one setting into the root .env (handles newlines/encoding)
@@ -188,6 +190,13 @@ async def bootstrap() -> None:
     from app.routers.deps import default_tenant
 
     tid = await default_tenant()
+    from app.core.config import get_settings
+
+    if get_settings().menu_source == "sri_sai_raja":
+        from app.menu import loader
+
+        applied = await loader.apply(tid, reindex=False)
+        print(f"Owner's menu applied: {applied['packages']} packages, {applied['items']} dishes")
     print(f"Item costs computed: {await refresh_item_costs(tid)}")
     print(f"Search index: {(await index_tenant(tid))['chunks_embedded']} chunks embedded")
 
@@ -259,6 +268,14 @@ async def main(argv: list[str]) -> None:
         elif cmd == "ingest-csv":
             from app.pricing.ingestion import ManualCsvSource, ingest
             print(json.dumps(await ingest(tid, [ManualCsvSource(open(argv[1], encoding="utf-8").read(), "supplier_csv")]), default=str))
+        elif cmd == "apply-menu":
+            from app.menu import loader
+
+            print(json.dumps(await loader.apply(tid), indent=2))
+        elif cmd == "price-report":
+            from app.menu import report
+
+            print(await report.build(tid))
         elif cmd == "sync-festivals":
             from app.festivals.repository import sync_calendar
             print(json.dumps({"festivals": await sync_calendar(None)}))

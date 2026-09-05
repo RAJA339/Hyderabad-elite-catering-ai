@@ -87,3 +87,18 @@ export type MarketSnapshot = {
   ingredients: { key: string; name: string; unit: string; wholesale: string; retail: string | null; change_7d_pct: string; volatile?: boolean }[];
   surcharge_total: string; notes: string[];
 };
+
+// ── The menu builder ────────────────────────────────────────────────────────
+export type MenuDish = { slug: string; name: string; name_te: string | null; description: string | null; category: string; diet: string; jain_ok: boolean; tags: string[]; popularity: number };
+export type MenuSlot = { key: string; label: string; default: string; options: string[] };
+export type MenuPackage = {
+  key: string; name: string; tagline: string; description: string; tier: string; diet: string; list_price: string | null; from_per_plate: string | null;
+  indicative_guests: number; occasions: string[]; includes: string[]; fixed: string[]; slots: MenuSlot[]; item_count: number;
+};
+export type MenuCatalog = { packages: MenuPackage[]; dishes: MenuDish[]; categories: string[]; optional_addons: string[]; never_remove: string[] };
+export type PricedMenu = {
+  package_key: string; tier: string; guest_count: number; diet: string; per_plate: string; subtotal: string; discount_total: string; surcharge_total: string;
+  tax_pct: string; tax_total: string; grand_total: string; list_price: string | null;
+  items: { slug: string; name: string; category: string; unit_price: string }[]; includes: string[]; changes: string[]; notes: string[];
+};
+export type MenuSelection = { package_key: string; guest_count: number; choices: Record<string, string>; add: string[]; remove: string[]; diet?: string | null };

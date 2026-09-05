@@ -27,6 +27,17 @@ async def lifespan(app: FastAPI):
 
         scheduler.start()
     st = get_settings()
+    if st.menu_source == "sri_sai_raja":
+        # The owner's card is data in the repo; the database follows it on every boot.
+        try:
+            from app.menu import loader
+            from app.routers.deps import default_tenant
+
+            applied = await loader.ensure(await default_tenant())
+            if applied:
+                log.info("menu_applied_on_startup", **applied)
+        except Exception as e:  # noqa: BLE001 — never keep the API down over the menu
+            log.error("menu_apply_failed", error=str(e))
     has_key = bool(st.anthropic_api_key or st.openai_api_key)
     log.info("startup", env=st.app_env, llm=st.resolved_llm_model, llm_key_present=has_key,
              workspace_id=st.anthropic_workspace_id or "(not set)",

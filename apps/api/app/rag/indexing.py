@@ -67,9 +67,11 @@ async def render_menu_catalog(tenant_id: UUID) -> list[SourceDoc]:
 
 async def render_package_templates(tenant_id: UUID) -> list[SourceDoc]:
     rows = await db.fetch(
-        """SELECT pt.key, pt.tier, pt.name, pt.diet::text AS diet, pt.occasions, pt.guest_min, pt.guest_max, pt.description,
-                  array_agg(mi.name || ' (slug: ' || mi.slug || ')' ORDER BY c.sort_order, mi.name) AS items,
-                  array_agg(DISTINCT c.name) AS categories, array_agg(mi.slug) AS slugs
+        """SELECT pt.key, pt.tier, pt.name, pt.diet::text AS diet, pt.occasions, pt.guest_min, pt.guest_max, pt.description, pt.list_price, pt.includes,
+                  array_agg(mi.name || ' (slug: ' || mi.slug || ')' ORDER BY c.sort_order, mi.name) FILTER (WHERE pti.slot IS NULL) AS items,
+                  array_agg(DISTINCT c.name) AS categories, array_agg(mi.slug) FILTER (WHERE pti.is_default) AS slugs,
+                  array_agg(pti.slot || ': ' || mi.name || ' (slug: ' || mi.slug || ')' || CASE WHEN pti.is_default THEN ' [default]' ELSE '' END
+                            ORDER BY pti.position) FILTER (WHERE pti.slot IS NOT NULL) AS choices
            FROM package_templates pt
            JOIN package_template_items pti ON pti.package_template_id = pt.id
            JOIN menu_items mi ON mi.id = pti.menu_item_id JOIN menu_categories c ON c.id = mi.category_id
@@ -80,7 +82,10 @@ async def render_package_templates(tenant_id: UUID) -> list[SourceDoc]:
     for r in rows:
         text = (f"# Package > {r['name']} ({r['tier'].title()})\n\n{r['description'] or ''}\n\n"
                 f"Diet: {r['diet']}. Suitable for {r['guest_min']}–{r['guest_max']} guests. "
-                f"Occasions: {', '.join(r['occasions'] or ['any'])}.\n\n## Includes\n" + "\n".join(f"- {i}" for i in r["items"]))
+                f"Occasions: {', '.join(r['occasions'] or ['any'])}.\n\n## Includes\n" + "\n".join(f"- {i}" for i in (r["items"] or []))
+                + ("\n\n## Choose one (the [or] lines on the card)\n" + "\n".join(f"- {c}" for c in r["choices"]) if r["choices"] else "")
+                + ("\n\nAlso included at no extra line: " + ", ".join(r["includes"]) + "." if r["includes"] else "")
+                + " Packaged water is an optional add-on, not part of the plate.")
         band = {"classic": "budget", "signature": "mid", "royal": "premium"}[r["tier"]]
         docs.append(SourceDoc("package_template", f"package:{r['key']}", r["name"], text,
                               {"category": "package", "subcategory": r["tier"], "diet": r["diet"], "guest_min": r["guest_min"],

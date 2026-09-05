@@ -30,7 +30,8 @@ Copy `.env.example` to `.env` (API) and `apps/web/.env.local` (web).
 | `OWNER_EMAIL` | no | owner alerts by email |
 | `EMAIL_FROM` | no | sender; Resend's onboarding address works without a domain |
 | `ADVANCE_PCT` | no | advance as % of the total; default 50 |
-| `MARGIN_TIER_ADJ` | no | margin points per tier, default `classic:-4,signature:0,royal:4` |
+| `MENU_SOURCE` | no | `sri_sai_raja` (default) applies the owner's cards at startup; empty leaves the catalogue alone |
+| `MARGIN_TIER_ADJ` | no | margin points per tier, default `classic:-3,signature:0,royal:2` (the cards in docs/10-menu.md were calibrated on this) |
 | `MARGIN_VOLUME_LADDER` | no | margin points per guest band, default `75:0,150:-2,300:-5,500:-8` |
 | `UPI_VPA` | no | owner's UPI ID (e.g. `9705316350@ybl`); makes the pay link and QR with the amount inside |
 | `UPI_PAYEE_NAME` | no | name shown in the customer's UPI app |
@@ -40,8 +41,8 @@ Copy `.env.example` to `.env` (API) and `apps/web/.env.local` (web).
 | `VOICE_TTS_VOICE` | no | provider voice name, default `Polly.Aditi` |
 | `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` | V1 | payment links |
 | `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` / `LANGFUSE_HOST` | no | tracing |
-| `TARGET_MARGIN_PCT` | no | default 40 |
-| `MIN_MARGIN_PCT` | no | default 32 |
+| `TARGET_MARGIN_PCT` | no | default 38 (the loader also sets the tenant to 38 / 30 when it applies the cards) |
+| `MIN_MARGIN_PCT` | no | default 30 |
 | `MAX_GUESTS` | no | default 500 (hard cap) |
 | `PRICE_INGEST_CRON` | no | default `0 * * * *` |
 | `CORS_ORIGINS` | no | comma-separated web origins |

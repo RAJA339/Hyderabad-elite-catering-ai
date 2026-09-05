@@ -105,14 +105,16 @@ class Settings(BaseSettings):
     langfuse_host: str = "https://cloud.langfuse.com"
 
     # Business rules
-    target_margin_pct: float = 40.0
-    min_margin_pct: float = 32.0
+    target_margin_pct: float = 38.0
+    min_margin_pct: float = 30.0
     max_guests: int = 500
     gst_pct: float = 5.0
     advance_pct: float = 50.0  # half up front is the norm in Indian catering; the balance on the day
     # Margin shaping (see pricing/engine.py). Points added to the tenant target, per tier and
     # per guest-count band; tune against real competitor quotes without touching code.
-    margin_tier_adj: str = "classic:-4,signature:0,royal:4"
+    margin_tier_adj: str = "classic:-3,signature:0,royal:2"
+    # Which menu the database follows at startup: "sri_sai_raja" (the owner's cards) or "" to leave the catalogue alone.
+    menu_source: str = "sri_sai_raja"
     margin_volume_ladder: str = "75:0,150:-2,300:-5,500:-8"
     price_ingest_cron: str = "0 * * * *"
     semantic_cache_ttl_s: int = 6 * 3600

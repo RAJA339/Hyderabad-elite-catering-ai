@@ -120,3 +120,120 @@ async def enquiry(body: EnquiryIn, background: BackgroundTasks, tenant_id=Depend
                          f"Anvi is putting menu options together for you right now — they will land in your inbox in a minute. "
                          f"You can also talk to her here: {s.public_web_url}/#chat\n\nWarmly,\nAnvi")
     return {"ok": True, "lead_id": str(lead["id"])}
+
+
+# ── The menu builder ─────────────────────────────────────────────────────────
+# The owner's packages, priced live, with every "choose one" line on the card as a real
+# choice. A visitor sees prices only; costs and margins never leave the server.
+
+class PriceIn(BaseModel):
+    package_key: str = Field(min_length=3, max_length=60)
+    guest_count: int = Field(ge=1, le=500)
+    choices: dict[str, str] = Field(default_factory=dict)
+    add: list[str] = Field(default_factory=list, max_length=20)
+    remove: list[str] = Field(default_factory=list, max_length=30)
+    diet: str | None = None
+
+
+async def _menu_context(tenant_id):
+    from app.pricing.repository import load_catalog, load_policy, load_prices, load_templates
+
+    return await load_templates(tenant_id), await load_catalog(tenant_id), await load_prices(tenant_id), await load_policy(tenant_id)
+
+
+@router.get("/menu")
+async def menu(tenant_id=Depends(default_tenant)):
+    from app.menu.builder import catalog_view
+
+    templates, catalog, prices, policy = await _menu_context(tenant_id)
+    rows = await db.fetch("SELECT slug, name_te, description FROM menu_items WHERE tenant_id = $1 AND is_active", tenant_id)
+    extra = {r["slug"]: {"name_te": r["name_te"], "description": r["description"]} for r in rows}
+    return catalog_view(templates, catalog, prices, policy, extra)
+
+
+def _selection(body: PriceIn):
+    from app.menu.builder import Selection
+
+    diet = body.diet if body.diet in ("veg", "non_veg", "mixed", "jain") else None
+    return Selection(body.package_key, body.guest_count, body.choices, body.add, body.remove, diet)
+
+
+@router.post("/menu/price")
+async def menu_price(body: PriceIn, tenant_id=Depends(default_tenant)):
+    from app.menu.builder import customer_view, price_selection
+
+    templates, catalog, prices, policy = await _menu_context(tenant_id)
+    tpl = next((t for t in templates if t.key == body.package_key), None)
+    if not tpl:
+        raise HTTPException(404, "That package is not on the menu.")
+    pkg, notes = price_selection(tpl, _selection(body), catalog, prices, policy)
+    return customer_view(pkg, tpl, notes)
+
+
+class MenuEnquiryIn(PriceIn):
+    name: str = Field(min_length=2, max_length=80)
+    phone: str = Field(min_length=10, max_length=20)
+    email: str | None = None
+    occasion: str | None = None
+    event_date: str | None = None
+
+
+@router.post("/menu/enquire")
+async def menu_enquire(body: MenuEnquiryIn, tenant_id=Depends(default_tenant)):
+    """The built menu becomes a real quote on the customer's own portal link — the same quote
+    Anvi and the owner see — and the owner is alerted at once."""
+    from datetime import timedelta
+
+    from app.leads import lifecycle
+    from app.leads import quotes as qrepo
+    from app.menu.builder import customer_view, price_selection
+    from app.pricing.market import market_snapshot
+
+    phone = normalise_phone(body.phone)
+    if not phone:
+        raise HTTPException(422, "Please enter a phone number with the country code, e.g. +91 98765 43210.")
+    if not await rate_limit(f"rl:menu-enquiry:{phone}", 5, 3600):
+        raise HTTPException(429, "We have this menu already — the owner will call shortly.")
+    templates, catalog, prices, policy = await _menu_context(tenant_id)
+    tpl = next((t for t in templates if t.key == body.package_key), None)
+    if not tpl:
+        raise HTTPException(404, "That package is not on the menu.")
+    pkg, notes = price_selection(tpl, _selection(body), catalog, prices, policy)
+
+    s = get_settings()
+    customer = await leads.get_or_create_customer(tenant_id, phone, body.name.strip())
+    email = (body.email or "").strip().lower() or None
+    if email and "@" in email:
+        await db.execute("UPDATE customers SET email = $2 WHERE id = $1", customer["id"], email)
+    await leads.record_consent(tenant_id, customer["id"], "communication", True, {"via": "menu_builder"})
+    await leads.record_consent(tenant_id, customer["id"], "data_storage", True, {"via": "menu_builder"})
+    lead = await leads.get_or_create_open_lead(tenant_id, customer["id"], source="web_chat")
+    fields: dict = {"guest_count": body.guest_count, "diet": pkg.diet}
+    if body.occasion:
+        fields["occasion"] = body.occasion.strip().lower().replace(" ", "_")
+    ev = None
+    if body.event_date:
+        try:
+            ev = date.fromisoformat(body.event_date)
+            fields["event_date"] = ev
+        except ValueError:
+            pass
+    lead = await leads.update_lead_fields(lead["id"], fields)
+    ev = ev or date.today() + timedelta(days=21)
+    snap = market_snapshot(pkg, prices)
+    saved = await qrepo.save_quote(tenant_id, lead["id"], pkg, ev, market_snapshot=snap, actor="customer",
+                                   event_payload={"package": tpl.key, "changes": notes, "via": "menu_builder"})
+    if lead.get("stage") in ("new", "qualifying", "qualified"):
+        await leads.set_stage(tenant_id, lead["id"], "quoted", actor="customer")
+    portal_url = f"{s.public_web_url}/portal/{saved['portal_token']}"
+    await lifecycle.on_quote_saved(tenant_id, lead, saved, changed=False, change_summary=None, portal_url=portal_url)
+    summary = f"{tpl.name} · {body.guest_count} guests · ₹{pkg.per_plate}/plate · total ₹{pkg.grand_total}" + (f" · {'; '.join(notes)}" if notes else "")
+    subject, text = build_enquiry_alert(name=body.name.strip(), phone="+" + phone, email=email, lead=lead,
+                                        message=f"(built on the website) {summary}", admin_url=admin_url_for(lead))
+    await alert_owner(subject, text)
+    if email:
+        await send_email(email, f"Your menu and price · {saved['quote_number']}",
+                         f"Namaste {body.name.split()[0]},\n\nHere is the menu you built, priced on today's market rates:\n{summary}\n\n"
+                         f"Your live quote (change it, lock the price, pay the advance): {portal_url}\n\nWarmly,\nAnvi")
+    return {"ok": True, "quote_number": saved["quote_number"], "portal_token": saved["portal_token"], "portal_url": portal_url,
+            **customer_view(pkg, tpl, notes)}

@@ -6,7 +6,7 @@ from uuid import UUID
 
 from app.core import db
 from app.pricing.models import IngredientPrice, MenuItem, RecipeLine
-from app.pricing.packages import PackageTemplate
+from app.pricing.packages import PackageTemplate, SlotChoice
 
 D = Decimal
 
@@ -80,25 +80,40 @@ async def load_catalog(tenant_id: UUID) -> dict[str, MenuItem]:
 
 
 async def load_templates(tenant_id: UUID) -> list[PackageTemplate]:
+    """Templates with their default plate. A slot's alternatives are returned on `slots`, not in
+    `item_slugs`, so pricing a template prices what the card promises by default."""
     rows = await db.fetch(
         """
-        SELECT pt.key, pt.tier, pt.diet::text AS diet, pt.guest_min, pt.guest_max, pt.occasions, pt.description,
-               array_agg(mi.slug ORDER BY mi.slug) AS slugs
+        SELECT pt.key, pt.tier, pt.diet::text AS diet, pt.guest_min, pt.guest_max, pt.occasions, pt.description, pt.name, pt.tagline,
+               pt.list_price, pt.includes, pt.margin_adj, pt.sort_order,
+               array_agg(mi.slug ORDER BY pti.slot NULLS FIRST, mi.slug) FILTER (WHERE pti.is_default) AS slugs,
+               jsonb_agg(jsonb_build_object('slot', pti.slot, 'slug', mi.slug, 'is_default', pti.is_default, 'pos', pti.position)
+                         ORDER BY pti.position, mi.slug) FILTER (WHERE pti.slot IS NOT NULL) AS slot_rows
         FROM package_templates pt
         JOIN package_template_items pti ON pti.package_template_id = pt.id
         JOIN menu_items mi ON mi.id = pti.menu_item_id
         WHERE pt.tenant_id = $1 AND pt.is_active
-        GROUP BY pt.id
+        GROUP BY pt.id ORDER BY pt.sort_order, pt.key
         """,
         tenant_id,
     )
-    return [
-        PackageTemplate(
-            key=r["key"], tier=r["tier"], diet=r["diet"], item_slugs=tuple(r["slugs"]), guest_min=r["guest_min"],
+    import json
+
+    out = []
+    for r in rows:
+        slots: dict[str, list[str]] = {}
+        raw = r["slot_rows"] or []
+        for sr in (json.loads(raw) if isinstance(raw, str) else raw):   # the pool's jsonb codec may already have decoded it
+            slots.setdefault(sr["slot"], [])
+            (slots[sr["slot"]].insert(0, sr["slug"]) if sr["is_default"] else slots[sr["slot"]].append(sr["slug"]))
+        out.append(PackageTemplate(
+            key=r["key"], tier=r["tier"], diet=r["diet"], item_slugs=tuple(r["slugs"] or ()), guest_min=r["guest_min"],
             guest_max=r["guest_max"], occasions=tuple(r["occasions"] or ()), description=r["description"] or "",
-        )
-        for r in rows
-    ]
+            name=r["name"] or "", tagline=r["tagline"] or "", list_price=D(r["list_price"]) if r["list_price"] is not None else None,
+            includes=tuple(r["includes"] or ()), margin_adj=D(r["margin_adj"] or 0), sort_order=r["sort_order"] or 0,
+            slots=tuple(SlotChoice(k, k.replace("_", " ").title(), tuple(v)) for k, v in slots.items()),
+        ))
+    return out
 
 
 async def load_policy(tenant_id: UUID):

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from decimal import Decimal
 
 from app.pricing.engine import AppliedDiscount, MarginPolicy, price_package
 from app.pricing.models import Diet, IngredientPrice, MenuItem, PackagePrice, Tier
@@ -12,15 +13,30 @@ JAIN_FORBIDDEN = {"onion", "garlic", "potato", "carrot", "beetroot", "radish", "
 
 
 @dataclass(frozen=True)
+class SlotChoice:
+    """A "choose one" line on the card: the first option is what the plate carries by default."""
+    key: str
+    label: str
+    options: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class PackageTemplate:
     key: str
     tier: Tier
     diet: Diet
-    item_slugs: tuple[str, ...]
+    item_slugs: tuple[str, ...]          # the default plate: fixed items plus each slot's default
     guest_min: int = 25
     guest_max: int = 500
     occasions: tuple[str, ...] = ()
     description: str = ""
+    name: str = ""
+    tagline: str = ""
+    list_price: Decimal | None = None    # the owner's printed per-plate, for reference
+    includes: tuple[str, ...] = ()       # what rides along at no extra line: disposables, tissues
+    slots: tuple[SlotChoice, ...] = ()
+    margin_adj: Decimal = Decimal("0")   # points on top of the tier's margin adjustment
+    sort_order: int = 0
 
 
 def apply_diet(items: Sequence[MenuItem], diet: Diet, catalog: Mapping[str, MenuItem]) -> tuple[list[MenuItem], list[str]]:
@@ -82,7 +98,8 @@ def build_tiers(
             continue
         items = [catalog[s] for s in tpl.item_slugs if s in catalog]
         items, notes = apply_diet(items, diet, catalog)
-        pkg = price_package(tier=tier, items=items, prices=prices, guest_count=guest_count, diet=diet, policy=policy, discounts=discounts)
+        pkg = price_package(tier=tier, items=items, prices=prices, guest_count=guest_count, diet=diet, policy=policy, discounts=discounts,
+                            package_adj=tpl.margin_adj, package_key=tpl.key)
         pkg.notes = notes + pkg.notes
         pkg.trace["template"] = tpl.key
         out.append(pkg)
@@ -104,7 +121,8 @@ def _pick_template(templates: Sequence[PackageTemplate], tier: str, diet: Diet, 
         if occasion and occasion in t.occasions:
             score += 5
         scored.append((score, t))
-    scored.sort(key=lambda s: -s[0])
+    # Stable on sort_order so two templates of one tier and diet resolve the same way every time.
+    scored.sort(key=lambda s: (-s[0], s[1].sort_order))
     return scored[0][1] if scored else None
 
 

@@ -88,8 +88,10 @@ INSERT INTO menu_categories (tenant_id, key, name, sort_order) VALUES
 ('11111111-1111-1111-1111-111111111111','main_veg','Main Course · Veg',3),
 ('11111111-1111-1111-1111-111111111111','main_nonveg','Main Course · Non-Veg',4),
 ('11111111-1111-1111-1111-111111111111','rice_breads','Rice & Breads',5),
-('11111111-1111-1111-1111-111111111111','live_counters','Live Counters',6),
-('11111111-1111-1111-1111-111111111111','desserts','Desserts',7)
+('11111111-1111-1111-1111-111111111111','sides','Chutneys & Sides',6),
+('11111111-1111-1111-1111-111111111111','live_counters','Live Counters',7),
+('11111111-1111-1111-1111-111111111111','desserts','Sweets & Desserts',8),
+('11111111-1111-1111-1111-111111111111','service','Service',9)
 ON CONFLICT (tenant_id, key) DO NOTHING;
 
 -- ── Menu items (recipes are per-guest quantities) ───────────────────────────

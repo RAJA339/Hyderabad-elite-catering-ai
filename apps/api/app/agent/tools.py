@@ -41,7 +41,7 @@ TOOLS: list[dict] = [
     },
     {
         "name": "price_package",
-        "description": "Generate Classic/Signature/Royal packages with live per-plate and total prices for the lead. Checks kitchen capacity for the date. Call whenever the customer asks for options, prices, or a quote.",
+        "description": "Generate the Classic/Signature/Royal packages from the owner's menu cards with live per-plate and total prices for the lead. Each package lists its `choose_one` lines (the [or] options on the card) — offer those swaps freely. Checks kitchen capacity for the date. Call whenever the customer asks for options, prices, or a quote.",
         "parameters": {"type": "object", "properties": {
             "guest_count": {"type": "integer"}, "diet": {"type": "string", "enum": ["veg", "non_veg", "mixed", "jain"]},
             "event_date": {"type": "string"}, "occasion": {"type": "string"},
@@ -139,11 +139,15 @@ class ToolExecutor:
         self.lead = await leads.update_lead_fields(self.lead["id"], {"conversion_probability": p})
         return p
 
-    async def _price_from_slugs(self, tier: str, slugs: list[str], guest_count: int, diet: str, discounts=()) -> tuple[Any, dict, dict]:
+    async def _price_from_slugs(self, tier: str, slugs: list[str], guest_count: int, diet: str, discounts=(), previous: dict | None = None) -> tuple[Any, dict, dict]:
         catalog, prices, policy = await load_catalog(self.tenant_id), await load_prices(self.tenant_id), await load_policy(self.tenant_id)
         items = [catalog[s] for s in slugs if s in catalog]
         items, notes = apply_diet(items, diet, catalog)
-        pkg = price_package(tier=tier, items=items, prices=prices, guest_count=guest_count, diet=diet, policy=policy, discounts=discounts)
+        # A quote keeps the margin shaping of the package it started from, so a modification
+        # re-prices the same way the card was priced instead of jumping to the tier default.
+        adj, key = _package_shaping(previous)
+        pkg = price_package(tier=tier, items=items, prices=prices, guest_count=guest_count, diet=diet, policy=policy, discounts=discounts,
+                            package_adj=adj, package_key=key)
         pkg.notes = notes + pkg.notes
         return pkg, catalog, prices
 
@@ -214,8 +218,18 @@ class ToolExecutor:
         if chosen:
             await self._close_probability(chosen.per_plate)
         order = presentation_order(segment)
+        by_key = {t.key: t for t in await load_templates(self.tenant_id)}
+        shown = []
+        for p in sorted(pkgs, key=lambda p: order.index(p.tier) if p.tier in order else 9):
+            tpl = by_key.get(p.trace.get("template"))
+            d = rounded_display(p)
+            if tpl:
+                d.update({"package": tpl.key, "name": tpl.name, "includes": list(tpl.includes),
+                          # The [or] lines on the card: offer these as swaps, at no change in price unless the tool says so.
+                          "choose_one": [{"slot": sl.label, "default": sl.options[0], "options": list(sl.options)} for sl in tpl.slots]})
+            shown.append(d)
         return {"event_date": ev.isoformat(), "guest_count": guest_count, "diet": diet, "kitchen_capacity_left": capacity_left,
-                "packages": [rounded_display(p) for p in sorted(pkgs, key=lambda p: order.index(p.tier) if p.tier in order else 9)], "within_budget": fit,
+                "packages": shown, "within_budget": fit,
                 "segment": segment, "present_in_order": order, "recommended_tier": chosen.tier if chosen else None,
                 "talk_track": {"value": "Lead with the Classic price, then show what Signature adds for a little more.",
                                "mid": "Show Royal first as the full experience, then Signature as what most families choose, then Classic.",
@@ -239,7 +253,10 @@ class ToolExecutor:
         add = [_resolve_slug(x, catalog) for x in (add_items or [])]
         rem = [_resolve_slug(x, catalog, allow_tag=True) for x in (remove_items or [])]
         items, notes = modify_items(items, add=[a for a in add if a], remove=[r for r in rem if r], catalog=catalog)
-        pkg, _, prices = await self._price_from_slugs(tier or prev["tier"], [i.slug for i in items], guest_count, diet)
+        pkg, _, prices = await self._price_from_slugs(tier or prev["tier"], [i.slug for i in items], guest_count, diet,
+                                                      previous=None if (tier and tier != prev["tier"]) else prev)
+        if tier and tier != prev["tier"] and tpl:
+            pkg.trace.setdefault("policy", {})["package"] = tpl.key
         pkg.notes = notes + pkg.notes
         snap = market_snapshot(pkg, prices)
         # pkg.notes already carries the diet substitutions/removals, so a Jain switch that drops an
@@ -347,6 +364,24 @@ class ToolExecutor:
         eid = await leads.create_escalation(self.tenant_id, self.lead["id"], reason, summary, priority)
         alerted = await notify_owner(lead=self.lead, customer=self.customer, reason=reason, summary=summary, priority=priority)
         return {"escalated": True, "escalation_id": str(eid), "owner_alerted": alerted, "eta": "within 2 hours (9am–9pm IST)"}
+
+
+def _package_shaping(quote: dict | None) -> tuple[Decimal, str | None]:
+    """The package adjustment a saved quote was priced with, from its trace."""
+    if not quote:
+        return Decimal("0"), None
+    trace = quote.get("pricing_trace") or {}
+    if isinstance(trace, str):
+        import json
+        try:
+            trace = json.loads(trace)
+        except ValueError:
+            trace = {}
+    pol = trace.get("policy") or {}
+    try:
+        return Decimal(str(pol.get("package_adj") or "0")), pol.get("package") or trace.get("template")
+    except Exception:  # noqa: BLE001
+        return Decimal("0"), None
 
 
 def _resolve_slug(x: str, catalog: dict, allow_tag: bool = False) -> str | None:
