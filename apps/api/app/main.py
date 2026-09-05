@@ -28,16 +28,23 @@ async def lifespan(app: FastAPI):
         scheduler.start()
     st = get_settings()
     if st.menu_source == "sri_sai_raja":
-        # The owner's card is data in the repo; the database follows it on every boot.
-        try:
-            from app.menu import loader
-            from app.routers.deps import default_tenant
+        # The owner's card is data in the repo; the database follows it after every boot.
+        # Applied in the background: the migration, the re-costing and above all the
+        # re-embedding of the search corpus can take minutes on a hosted model, and the
+        # platform's healthcheck gives the process two. Serving starts first.
+        import asyncio
 
-            applied = await loader.ensure(await default_tenant())
-            if applied:
-                log.info("menu_applied_on_startup", **applied)
-        except Exception as e:  # noqa: BLE001 — never keep the API down over the menu
-            log.error("menu_apply_failed", error=str(e))
+        async def _apply_menu_bg() -> None:
+            try:
+                from app.menu import loader
+                from app.routers.deps import default_tenant
+
+                applied = await loader.ensure(await default_tenant())
+                log.info("menu_apply_finished", applied=applied or "already current")
+            except Exception as e:  # noqa: BLE001 — never keep the API down over the menu
+                log.error("menu_apply_failed", error=str(e))
+
+        app.state.menu_task = asyncio.create_task(_apply_menu_bg())
     has_key = bool(st.anthropic_api_key or st.openai_api_key)
     log.info("startup", env=st.app_env, llm=st.resolved_llm_model, llm_key_present=has_key,
              workspace_id=st.anthropic_workspace_id or "(not set)",
