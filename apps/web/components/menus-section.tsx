@@ -7,8 +7,9 @@ import { rupees } from "@/lib/format";
 
 /** The nine cards on the landing page, priced live. Each opens the builder on that card. */
 export function MenusSection() {
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [cat, setCat] = useState<MenuCatalog | null>(null);
-  useEffect(() => { api<MenuCatalog>("/api/public/menu", { auth: false }).then(setCat).catch(() => setCat(null)); }, []);
+  useEffect(() => { api<MenuCatalog>("/api/public/menu", { auth: false }).then((catalog) => { setCat(catalog); setStatus("ready"); }).catch(() => { setCat(null); setStatus("error"); }); }, []);
   const groups = [["veg", "Veg"], ["non_veg", "Non-veg"]] as const;
   return (
     <section id="menus" className="mx-auto max-w-6xl scroll-mt-24 px-5 pt-20" aria-labelledby="menus-heading">
@@ -19,13 +20,13 @@ export function MenusSection() {
         </div>
         <p className="max-w-sm text-[15px] leading-relaxed text-muted">Rice, curries, chutneys, a sweet, a snack, disposables — all in the plate. Priced this morning on Bowenpally rates, for 100 guests. Bigger events pay less per plate.</p>
       </div>
-      {groups.map(([diet, label]) => {
+      {status === "error" ? <div role="status" className="mb-8 border border-line bg-card p-7"><h3 className="text-lg font-medium">Our live menu is temporarily unavailable.</h3><p className="mt-2 text-base text-muted">Please try the menu builder again shortly, or request a call to discuss your gathering.</p><a href="#enquire" className="text-button mt-3">Request a call <ArrowUpRight size={14} /></a></div> : status === "ready" && !cat?.packages.length ? <p className="mb-8 text-muted">Menus are being updated. Please request a call for current options.</p> : groups.map(([diet, label]) => {
         const list = (cat?.packages ?? []).filter((p) => p.diet === diet);
         return (
           <div key={diet} className="mb-8">
             <div className="mb-3 flex items-center gap-3"><span className="label">{label}</span><span className="h-px flex-1 bg-line" /></div>
             <ul className={["grid gap-3 sm:grid-cols-2", diet === "veg" ? "lg:grid-cols-5" : "lg:grid-cols-4"].join(" ")}>
-              {(list.length ? list : Array.from({ length: diet === "veg" ? 5 : 4 }, (_, i) => null as null | (typeof list)[number] & {})).map((p, i) => (
+              {(status === "ready" ? list : Array.from({ length: diet === "veg" ? 5 : 4 }, (_, i) => null as null | (typeof list)[number] & {})).map((p, i) => (
                 <li key={p?.key ?? i}>
                   {p ? (
                     <Link href={`/menu?package=${p.key}`} className="group flex h-full flex-col rounded-2xl border border-line bg-card p-5 transition-all hover:-translate-y-px hover:border-fg/40 hover:shadow-soft">
@@ -38,7 +39,7 @@ export function MenusSection() {
                       </div>
                       <p className="mt-1 text-xs text-muted">{p.item_count} items{p.slots.length ? ` · ${p.slots.length} choices` : ""}</p>
                     </Link>
-                  ) : <div className="shimmer h-44 rounded-2xl" />}
+                  ) : <div role="status" aria-label="Loading menu" className="shimmer h-44 rounded-2xl" />}
                 </li>
               ))}
             </ul>

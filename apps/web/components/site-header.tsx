@@ -1,25 +1,19 @@
+"use client";
+
 import Link from "next/link";
+import { useState } from "react";
+import { ArrowUpRight, Menu, X } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 export function SiteHeader() {
-  return (
-    <header className="sticky top-0 z-40">
-      <div className="mx-auto mt-3 max-w-6xl px-4">
-        <div className="glass flex h-12 items-center justify-between rounded-full px-4 pl-5">
-          <Link href="/" className="flex items-center gap-2.5 whitespace-nowrap text-sm font-semibold tracking-tight">
-            <span className="relative inline-flex h-2 w-2"><span className="absolute inline-flex h-full w-full rounded-full bg-accent opacity-60 blur-[2px]" /><span className="relative inline-flex h-2 w-2 rounded-full bg-accent" /></span>
-            Hyderabad Elite Catering
-          </Link>
-          <nav className="flex items-center gap-0.5 text-[13px] sm:gap-1">
-            <Link href="/menu" className="rounded-full px-3 py-1.5 text-muted transition-colors hover:bg-line/50 hover:text-fg">Menus</Link>
-            <Link href="/#enquire" className="hidden rounded-full px-3 py-1.5 text-muted transition-colors hover:bg-line/50 hover:text-fg sm:block">Request a call</Link>
-            <Link href="/portal" className="hidden rounded-full px-3 py-1.5 text-muted transition-colors hover:bg-line/50 hover:text-fg sm:block">Client portal</Link>
-            <Link href="/admin" className="rounded-full px-3 py-1.5 text-muted transition-colors hover:bg-line/50 hover:text-fg">Admin</Link>
-            <span className="mx-1 h-4 w-px bg-line" />
-            <ThemeToggle />
-          </nav>
-        </div>
-      </div>
-    </header>
-  );
+  const [open, setOpen] = useState(false);
+  return <header className="elite-header">
+    <a href="#main-content" className="skip-link">Skip to content</a>
+    <div className="elite-nav">
+      <Link href="/" className="elite-brand" aria-label="Hyderabad Elite Catering home"><span className="brand-monogram">H<span>E</span></span><span>HYDERABAD ELITE<small>C A T E R I N G</small></span></Link>
+      <nav className="desktop-nav" aria-label="Main navigation"><Link href="/menu">Our menus</Link><Link href="/#table">The signature table</Link><Link href="/portal">Client portal</Link></nav>
+      <div className="nav-actions"><ThemeToggle /><Link href="/#enquire" className="nav-book">Plan your event <ArrowUpRight size={16} /></Link><button className="mobile-menu-button" aria-expanded={open} aria-controls="mobile-navigation" aria-label={open ? "Close navigation" : "Open navigation"} onClick={() => setOpen(!open)}>{open ? <X /> : <Menu />}</button></div>
+    </div>
+    {open && <nav id="mobile-navigation" className="mobile-navigation" aria-label="Mobile navigation" onKeyDown={(e) => { if (e.key === "Escape") setOpen(false); }}><Link onClick={() => setOpen(false)} href="/menu">Our menus</Link><Link onClick={() => setOpen(false)} href="/#table">The signature table</Link><Link onClick={() => setOpen(false)} href="/portal">Client portal</Link><Link onClick={() => setOpen(false)} href="/#enquire">Plan your event</Link><Link onClick={() => setOpen(false)} href="/admin">Admin</Link></nav>}
+  </header>;
 }
