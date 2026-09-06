@@ -36,7 +36,7 @@ export function EnquiryForm() {
           <div>
             <span className="label flex items-center gap-2"><span className="h-px w-6 bg-accent" /> Prefer a call?</span>
             <h2 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">Leave the basics. <span className="display-italic text-muted">We</span> call you.</h2>
-            <p className="mt-4 max-w-md text-[15px] leading-relaxed text-muted">Six fields. The owner is alerted the moment you press send, and calls back within two hours between 9am and 9pm. Anvi keeps a priced menu ready for when you pick up.</p>
+            <p className="mt-4 max-w-md text-[15px] leading-relaxed text-muted">Tell us a little about your gathering. Our team will help you choose a menu, discuss your venue and work through the details.</p>
           </div>
           <dl className="mt-8 grid grid-cols-3 gap-4 border-t border-line/80 pt-5 text-sm">
             <div><dt className="label">Callback</dt><dd className="mt-1 font-medium">Under 2 hours</dd></div>
@@ -67,7 +67,7 @@ export function EnquiryForm() {
             <Field label="Guests">
               <div className="flex gap-2">
                 <Input value={f.guests} onChange={set("guests")} placeholder="120" inputMode="numeric" className="flex-1" />
-                <select value={f.diet} onChange={set("diet")} className="hairline h-10 rounded-xl bg-bg px-3 text-sm outline-none">
+                <select aria-label="Dietary preference" value={f.diet} onChange={set("diet")} className="hairline h-10 rounded-xl bg-bg px-3 text-sm outline-none">
                   <option value="veg">Veg</option><option value="non_veg">Non-veg</option><option value="mixed">Mixed</option><option value="jain">Jain</option>
                 </select>
               </div>

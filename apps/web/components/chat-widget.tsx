@@ -38,7 +38,10 @@ export function ChatWidget({ inline = false }: { inline?: boolean }) {
     setMounted(true);
   }, []);
   useEffect(() => {
-    end.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    if (msgs.length > 1 || busy) {
+      const container = end.current?.parentElement;
+      if (container) container.scrollTo({ top: container.scrollHeight, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
+    }
   }, [msgs, busy]);
 
   async function send(text: string) {

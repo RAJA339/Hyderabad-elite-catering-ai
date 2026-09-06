@@ -4,10 +4,10 @@ import { Providers } from "@/components/providers";
 
 export const metadata: Metadata = {
   title: { default: "Hyderabad Elite Catering", template: "%s · HEC" },
-  description: "WhatsApp-first catering with live Hyderabad market pricing, festival offers, and a personal AI consultant.",
+  description: "Hyderabadi feasts for weddings, housewarmings and corporate gatherings. Explore complete menus, plan with Anvi and request your personalised catering quote.",
   icons: { icon: "/favicon.svg" },
 };
-export const viewport: Viewport = { themeColor: [{ media: "(prefers-color-scheme: light)", color: "#faf9f6" }, { media: "(prefers-color-scheme: dark)", color: "#0a0a0b" }] };
+export const viewport: Viewport = { themeColor: [{ media: "(prefers-color-scheme: light)", color: "#f8f7f3" }, { media: "(prefers-color-scheme: dark)", color: "#111512" }] };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
